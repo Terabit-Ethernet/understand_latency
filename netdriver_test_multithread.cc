@@ -107,7 +107,7 @@ void print_help(const char *name)
 }
 
 
-void test_ndping_send(int fd, struct sockaddr *dest, int id)
+void test_ndping_send(int fd, struct sockaddr *dest, int id, int io_depth)
 {
 
 	std::queue<uint64_t> time_q;
@@ -125,6 +125,7 @@ void test_ndping_send(int fd, struct sockaddr *dest, int id)
 		while(1) {
 
 	    	int total = 0;
+			int burst = io_depth;
 			// std::unique_lock<std::mutex> lck(mtx);
 			// cv.wait(lck, queue_available);
 			uint64_t end = rdtsc();
@@ -132,35 +133,44 @@ void test_ndping_send(int fd, struct sockaddr *dest, int id)
 			count = (count + 1) % q_depth;
 			// flag = (limit - time_q.size() == 1)? MSG_EOR: MSG_EOR;
 			flag = MSG_EOR;
-			while(total < 64) {
-				time_q.push(rdtsc());
-				int result = send(fd, buffer, 64 - total, flag);	
-				if( result < 0 ) {
-					if(errno == EMSGSIZE) {
-						printf("Socket write failed: %s %d\n", strerror(errno), result);
-						break;
+			while(burst > 0) {
+				total = 0;
+				while(total < 64) {
+					time_q.push(rdtsc());
+					int result = send(fd, buffer, 64 - total, flag);	
+					if( result < 0 ) {
+						if(errno == EMSGSIZE) {
+							printf("Socket write failed: %s %d\n", strerror(errno), result);
+							break;
+						}
+					} else {
+						write_len += result;
+						total += result;
 					}
-				} else {
-					write_len += result;
-					total += result;
 				}
+				burst--;
 			}
-			while(total < 64) {
-				int result = read(fd, buffer, 64 - total);	
-				if( result < 0 ) {
-					if(errno == EMSGSIZE) {
-						printf("Socket write failed: %s %d\n", strerror(errno), result);
-						break;
+			burst = io_depth;
+			while(burst > 0) {
+				total = 0;
+				while(total < 64) {
+					int result = read(fd, buffer, 64 - total);	
+					if( result < 0 ) {
+						if(errno == EMSGSIZE) {
+							printf("Socket write failed: %s %d\n", strerror(errno), result);
+							break;
+						}
+					} else {
+						total += result;
 					}
-				} else {
-					total += result;
+					if(total == 64) {
+						uint64_t start = time_q.front();
+						end = rdtsc();
+						latency.push_back(to_seconds(end - start));
+						time_q.pop();
+					}
 				}
-				if(total == 64) {
-					uint64_t start = time_q.front();
-					end = rdtsc();
-					latency.push_back(to_seconds(end - start));
-					time_q.pop();
-				}
+				burst--;
 			}
 			// time_q.push(end);
 			if(to_seconds(end-start_time) > times)
@@ -408,6 +418,7 @@ int main(int argc, char** argv)
 	int fd;
 	int i;
 	int srcPort = 0;
+	int io_depth = 1;
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
 		exit(0);
@@ -475,6 +486,15 @@ int main(int argc, char** argv)
 			nextArg++;
 			limit = get_int(argv[nextArg],
 				"Bad limit %s; must be positive integer\n");
+		} else if (strcmp(argv[nextArg], "--iodepth") == 0) {
+			if (nextArg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[nextArg]);
+				exit(1);
+			}
+			nextArg++;
+			io_depth = get_int(argv[nextArg],
+				"Bad io_depth %s; must be positive integer\n");
 		} else {
 			printf("Unknown option %s; type '%s --help' for help\n",
 				argv[nextArg], argv[0]);
@@ -521,7 +541,7 @@ int main(int argc, char** argv)
 					exit(1);
 				}
 				printf("reach here tcp async\n");
-				workers.push_back(std::thread(test_ndping_send, fd, dest, i));
+				workers.push_back(std::thread(test_ndping_send, fd, dest, i, io_depth));
 				// workers.push_back(std::thread(test_ndping_recv, fd, dest, srcPort - 10000));
 			} else if (strcmp(argv[nextArg], "tcppingpong") == 0) {
 				fd = socket(AF_INET, SOCK_STREAM, 0);

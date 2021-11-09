@@ -742,7 +742,7 @@ void udp_server(int port)
 int main(int argc, char** argv) {
 	int next_arg;
 	int num_ports = 1;
-	int iodepth;
+	int iodepth = 1;
 	std::string ip;
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
