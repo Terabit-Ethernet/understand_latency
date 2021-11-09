@@ -47,11 +47,11 @@ void compute(int id, int n) {
 int main (int argc, char** argv) {
     int num_threads = get_int(argv[1], "bad thread num:%s\n");
     std::vector<std::thread> workers;
-    for (int i = 0; i < num_threads; i++) {
+    for (int  i = 0; i < num_threads; i++) {
         workers.push_back(std::thread(compute, i, num_threads));
     }
 
-    for(int i = 0; i < workers.size(); i++) {
+    for(unsigned i = 0; i < workers.size(); i++) {
             workers[i].join();
     }
     return 0;
