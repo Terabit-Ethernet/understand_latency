@@ -113,13 +113,13 @@ void test_ndping_send(int fd, struct sockaddr *dest, int id, int io_depth)
 	std::queue<uint64_t> time_q;
 	char *buffer = (char*)malloc(1000000);
 	// uint64_t flow_size = 10000000000000;
-	int times = 60;
+	int times = 600;
 	int flag = 0;
 	std::vector<double> latency;
 	uint64_t write_len = 0;
 	uint64_t start_time = rdtsc();
 	std::ofstream file;
-	file.open("temp/result_tcp_pingpongasync_" + std::to_string(id));
+	file.open("temp/netperf-" + std::to_string(id)+".log");
 	int q_depth = 64, count = 0;
 	    // for (int i = 0; i < count * 100; i++) {
 		while(1) {
@@ -534,13 +534,11 @@ int main(int argc, char** argv)
 		for ( ; nextArg < argc; nextArg++) {
 			if (strcmp(argv[nextArg], "tcpppasync") == 0) {
 				fd = socket(AF_INET, SOCK_STREAM, 0);
-				std::cout << "limit " <<limit << std::endl;
 
 				if (connect(fd, dest, sizeof(struct sockaddr_in)) == -1) {
 					printf("Couldn't connect to dest %s\n", strerror(errno));
 					exit(1);
 				}
-				printf("reach here tcp async\n");
 				workers.push_back(std::thread(test_ndping_send, fd, dest, i, io_depth));
 				// workers.push_back(std::thread(test_ndping_recv, fd, dest, srcPort - 10000));
 			} else if (strcmp(argv[nextArg], "tcppingpong") == 0) {

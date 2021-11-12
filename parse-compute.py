@@ -13,18 +13,22 @@ N = int(sys.argv[2])
 
 # Parse netperf files
 params = []
-for i in range(1, N):
-    f = os.path.join(DIR, "compute-{}-{}.log".format(i, N))
+for i in range(0, N):
+    f = os.path.join(DIR, "compute_{}-{}.log".format(i, N))
     lines = []
     avg = 0
     with open(f, "r") as file:
         lines = file.readlines()
         for line in lines:
            param = line.split()
-           avg += float(param[0])
-    avg = avg / len(lines)
-    params.append(avg)
-
+           if len(param) < 2:
+               continue
+           try: 
+               avg += float(param[0])
+           except:
+               sys.stderr.write(DIR + "compute_{}-{}.log\n".format(i, N))
+        avg = avg / len(lines)
+        params.append(avg)
 # Print the netperf latencies
 categories = ['thru(M)']
 print("idx\t{}".format("\t".join(categories)))

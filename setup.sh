@@ -4,7 +4,8 @@ DIR=$(realpath $(dirname $(readlink -f $0)))
 
 # Source the environment file
 source $DIR/env.sh
-
+sudo ifconfig $INTF mtu 9000
+sudo ifconfig $INTF $HOST
 # Enable aRFS and configure network
 sudo service irqbalance stop
 sudo ethtool -C $INTF adaptive-rx off adaptive-tx off
@@ -28,4 +29,4 @@ sudo hwstamp_ctl -i $INTF -r 1
 # synchoronize the hardware timer
 phc2sys -a -r
 # comppile compute app
-g++ -pthread compute_md.cpp -o compute
+#g++ -pthread compute_md.cpp -o compute
