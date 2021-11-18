@@ -22,10 +22,18 @@ int get_int(const char *s, const char *msg)
         return value;
 }
 
+void set_idle_priority(void) {
+        struct sched_param param;
+        param.sched_priority = 0;
+        int s = pthread_setschedparam(pthread_self(), SCHED_IDLE, &param);
+        if (s != 0) printf("Pthread_setschedparam error!n");
+}
+
 void compute(int id, int n) {
     auto start = std::chrono::steady_clock::now();
     unsigned long long counter = 0;
     std::ofstream file("./temp/compute_" + std::to_string(id) + "-" + std::to_string(n) + ".log", fstream::out);
+    set_idle_priority();
     while (1) { 
         counter += 1; 
         if (counter % 100000000ull == 0) {
@@ -50,7 +58,7 @@ int main (int argc, char** argv) {
     for (int  i = 0; i < num_threads; i++) {
         workers.push_back(std::thread(compute, i, num_threads));
     }
-
+    set_idle_priority();
     for(unsigned i = 0; i < workers.size(); i++) {
             workers[i].join();
     }
