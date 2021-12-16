@@ -9,6 +9,18 @@ IODEPTH=$4
 IRQCORES=$5
 DPORT=5001
 
+if [ "$IRQCORES" -eq 2 ]; then 
+	TASKSET="0,4,8,12,16,20"
+elif [ "$IRQCORES" -eq 3 ]; then 
+	TASKSET="0,4,8,12,16"
+elif [ "$IRQCORES" -eq 4 ]; then 
+	TASKSET="0,4,8,12"
+elif [ "$IRQCORES" -eq 5 ]; then 
+	TASKSET="0,4,8"
+else 
+	echo "invalid #irq cores"
+fi
+
 # client-side
 sudo trace-cmd clear
 sudo sysctl -w net.core.latency_breakdown_on=1
@@ -33,13 +45,13 @@ ssh jaehyun\@128.84.155.146 -t 'echo 1 | sudo tee /sys/kernel/debug/tracing/trac
 ssh jaehyun\@128.84.155.146 -t "sudo sysctl -w net.core.latency_breakdown_log=$LOG"
 #ssh jaehyun\@128.84.155.146 -t "sudo sysctl -w net.core.latency_breakdown_log=50"
 
-TASKSET="0,4,8,12,16,20"
+
 TASKSET2="0,4,8,12,16,20,24,28"
 
 mkdir -p $DIR
 # for i in `seq 1 $N`; do
         #sudo taskset -c 0 nice -n -19 netperf -H 192.168.10.146 -t TCP_RR -l 100 -f g -j -p $DPORT -- -r $SIZE,$SIZE -o throughput,mean_latency,p99_latency,p999_latency &> $DIR/netperf-$i-$N.log&
-        ssh jaehyun\@128.84.155.146 -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip 192.168.10.125 --port $((DPORT))" &
+        ssh jaehyun\@128.84.155.146 -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip 192.168.10.125 --port $((DPORT))" > debug &
 # done
 
 sleep 3
@@ -53,9 +65,9 @@ sleep 3
 # done
 
 # for i in `seq 1 8`; do
-ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET nice -n 19 ./compute_md 8" &
-PIDS2="$PIDS2 $!"
-echo "pid2 $PIDS2"
+ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET2 nice -n 19 ./compute_md 8" &
+# PIDS2="$PIDS2 $!"
+# echo "pid2 $PIDS2"
 # done
 
 sar -u 55 1 -P ALL > $DIR/cpu-$N.log &

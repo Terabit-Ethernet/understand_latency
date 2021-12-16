@@ -1,6 +1,6 @@
 iodepth=(0)
 num_apps=(1024)
-irq_cores=(2)
+irq_cores=(3 4 5)
 compute=(1)
 for i in "${iodepth[@]}"
 do
@@ -19,9 +19,6 @@ do
                ./ours-both-8c-compute-k2.sh $k temp/ 64 $i $j $l
                mkdir temp/our_mc_"$k"_"$i"_"$j"_"$l"
                mv temp/*.log temp/our_mc_"$k"_"$i"_"$j"_"$l"
-            # ./caladan-both-8c-compute.sh $k temp/ 64 $i $j $l
-            # mkdir temp/caladan_mc_"$k"_"$i"_"$j"_"$l"
-            # mv temp/*.log temp/caladan_mc_"$k"_"$i"_"$j"_"$l"
            done
        done
    done
@@ -38,9 +35,8 @@ do
             do
                 mkdir results/our_mc_"$k"_"$i"_"$j"_"$l"
                 # ./parse-netperf.py temp/linux_mc_"$k"_"$i"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/arfs_latency &
-                # ./parse-netperf.py temp/our_mc_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_latency &
+                ./parse-netperf.py temp/our_mc_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_latency &
                 # ./parse-netperf.py temp/cfs_mc_"$k"_"$i"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/crfs_latency &
-                # ./parse-netperf.py temp/caladan_mc_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/caladan_latency &
                 # ./parse-breakdown-server.py temp/linux_mc_"$k"_"$i"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/arfs_latency_breakdown_s &
                 ./parse-breakdown-server.py temp/our_mc_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_latency_breakdown_s &
                 # ./parse-breakdown-server.py temp/cfs_mc_"$k"_"$i"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/crfs_latency_breakdown_s &
@@ -48,13 +44,11 @@ do
                 ./parse-breakdown.py temp/our_mc_"$k"_"$i"_"$j"_"$l" $k >  results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_latency_breakdown_c &
                 # ./parse-breakdown.py temp/cfs_mc_"$k"_"$i"_"$l" $k >  results/our_mc_"$k"_"$i"_"$j"_"$l"/crfs_latency_breakdown_c &
                 # ./parse-cpu.py temp/linux_mc_"$k"_"$i"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/arfs_cpu &
-                # ./parse-cpu.py temp/our_mc_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_cpu &
+                ./parse-cpu.py temp/our_mc_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_cpu &
                 # ./parse-cpu.py temp/cfs_mc_"$k"_"$i"_"$l" $k > results/our_mc_"$k"_"$i"_"$j"_"$l"/crfs_cpu &
                 # ./parse-compute.py temp/linux_mc_"$k"_"$i"_"$l" 8 > results/our_mc_"$k"_"$i"_"$j"_"$l"/arfs_compute &
-                # ./parse-compute.py temp/our_mc_"$k"_"$i"_"$j"_"$l" 8 > results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_compute &
+                ./parse-compute.py temp/our_mc_"$k"_"$i"_"$j"_"$l" 8 > results/our_mc_"$k"_"$i"_"$j"_"$l"/nrfs_compute &
                 # ./parse-compute.py temp/cfs_mc_"$k"_"$i"_"$l" 8 > results/our_mc_"$k"_"$i"_"$j"_"$l"/crfs_compute &
-                # ./parse-compute.py temp/caladan_mc_"$k"_"$i"_"$j"_"$l" 8 > results/our_mc_"$k"_"$i"_"$j"_"$l"/caladan_compute &
-
 
             done
         done

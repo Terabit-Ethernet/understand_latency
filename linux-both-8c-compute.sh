@@ -19,7 +19,7 @@ echo 1 | sudo tee /sys/kernel/debug/tracing/tracing_on
 LOG=$((997 / N))
 if [[ $N -gt 10 ]]; then LOG=100; fi
 #LOG=249
-#sudo sysctl -w net.core.latency_breakdown_log=$LOG
+sudo sysctl -w net.core.latency_breakdown_log=$LOG
 
 # server-side
 ssh jaehyun\@128.84.155.146 -t 'sudo trace-cmd clear'
