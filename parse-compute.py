@@ -18,7 +18,7 @@ for i in range(0, N):
     lines = []
     avg = 0
     with open(f, "r") as file:
-        lines = file.readlines()
+        lines = file.readlines()[0:30]
         for line in lines:
            param = line.split()
            if len(param) < 2:

@@ -13,6 +13,7 @@ N = int(sys.argv[2])
 
 # Parse netperf files
 results = []
+total_thpt = 0
 for i in range(0, N ):
     f = os.path.join(DIR, "netperf-{}.log".format(i))
     lines = []
@@ -22,10 +23,17 @@ for i in range(0, N ):
             params = line.split()
             time = float(params[2])
             results.append(time)
+    f = os.path.join(DIR, "netperf-{}_thpt.log".format(i))
+    with open(f, "r") as file:
+        lines = file.readlines()
+        for line in lines:
+            params = line.split()
+            thpt = float(params[0])
+            total_thpt += thpt
 
 results.sort()
 # Print the netperf latencies
 categories = ['m_lat', 'p99_lat', 'p999_lat']
-print("{}\t{}\t{}".format('m_lat','p99_lat',  'p999_lat'))
+print("{}\t{}\t{}".format('m_lat','p99_lat',  'p999_lat', "thpt"))
 
-print("{}\t{}\t{}".format(sum(results) / len(results), np.percentile(results, 99),  np.percentile(results, 99.9)))
+print("{}\t{}\t{}".format(sum(results) / len(results), np.percentile(results, 99),  np.percentile(results, 99.9)), total_thpt)

@@ -78,6 +78,8 @@ for line in lines:
                 'tx_xmit': tx_xmit,
                 'tx_finish': tx_finish
             })
+            # if rx_ip - rx_gro > 40000:
+            #     sys.stderr.write(line + "\n")
 
 # Calculate latencies
 latencies = {}
@@ -92,8 +94,8 @@ for port, ss in samples.items():
             #'rx_napi': ts['rx_gro'] - ts['rx_napi'],
             'rx_irq': ts['rx_alloc'] - ts['rx_hw'],
             'rx_napi': ts['rx_gro'] - ts['rx_alloc'],
-            'rx_gro': ts['rx_ip'] - ts['rx_gro'],
-            'rx_ip': ts['rx_tcp'] - ts['rx_ip'],
+#            'rx_gro': ts['rx_ip'] - ts['rx_gro'],
+            'rx_ip': ts['rx_tcp'] - ts['rx_gro'],
             'rx_tcp': ts['rx_ready'] - ts['rx_tcp'],
             'rx_sched': ts['rx_wake_up'] - ts['rx_ready'],
             'rx_data_copy': ts['rx_return'] - ts['rx_data_copy'],
@@ -106,7 +108,8 @@ for port, ss in samples.items():
             #'full': ts['tx_finish'] - ts['rx_irq'],
             'full': ts['tx_finish'] - ts['rx_hw'],
         })
-
+for port in latencies.keys():
+   latencies[port].sort(key = lambda x: x['full'])
 # Average and tail atencies
 sum = {}
 num = {}
@@ -145,7 +148,7 @@ for port, ts in tails.items():
         tail999[port][k] = sorted(v)[round(0.999 * len(v)) - 1]
 
 # Print latency breakdown
-categories = ['rx_irq', 'rx_napi', 'rx_gro', 'rx_ip', 'rx_tcp', 'rx_sched', 'rx_data_copy', 'app', 'tx_data_copy', 'tx_tcp', 'tx_ip', 'tx_queue', 'tx_xmit', 'full']
+categories = ['rx_irq', 'rx_napi', 'rx_ip', 'rx_tcp', 'rx_sched', 'rx_data_copy', 'app', 'tx_data_copy', 'tx_tcp', 'tx_ip', 'tx_queue', 'tx_xmit', 'full']
 print("port\t{}".format("\t".join(categories)))
 for port in avg:
     print("{}\t{}".format(port, "\t".join("{}".format(avg[port][c]) for c in categories)))
@@ -157,3 +160,4 @@ for port in avg:
 print("port\t{}".format("\t".join(categories)))
 for port in avg:
     print("{}\t{}".format(port, "\t".join("{}".format(tail999[port][c]) for c in categories)))
+
