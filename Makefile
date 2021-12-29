@@ -3,7 +3,7 @@
 CFLAGS := -pthread -Wall -Werror -g -fno-strict-aliasing -O3 -I..
 
 
-BINS := netdriver_test_multithread  pingpong_server compute_md
+BINS := netserver netperf netdriver_test_multithread  pingpong_server compute_md
 
 OBJS := $(patsubst %,%.o,$(BINS))
 	
