@@ -404,6 +404,7 @@ void tcp_connection(int fd, struct sockaddr_in source)
 void tcp_server(int port, int iodepth)
 {
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
+	int i = 0;
 	if (listen_fd == -1) {
 		printf("Couldn't open server socket: %s\n", strerror(errno));
 		exit(1);
@@ -440,7 +441,12 @@ void tcp_server(int port, int iodepth)
 			exit(1);
 		}
 		std::thread thread(nd_pingpong, stream, client_addr, iodepth);
+	//	cpu_set_t cpuset;
+	//	CPU_ZERO(&cpuset);
+	//	CPU_SET((i) % 6 * 4, &cpuset);
+	//	pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
 		thread.detach();
+		i += 1;
 	}
 }
 
