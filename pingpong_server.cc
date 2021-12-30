@@ -102,7 +102,7 @@ void aggre_thread(struct Agg_Stats *stats) {
  *                will arrive.
  * @client_addr:  Information about the client (for messages).
  */
-void nd_pingpong(int fd, struct sockaddr_in source, int iodepth)
+void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 {
 	// int flag = 1;
 	int optval = 6;
@@ -138,7 +138,7 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth)
 	// printf("sizeof buffer:%ld\n", sizeof(buffer));
 	while (1) {
 		int copied = 0;
-		int rpc_length = 64;
+		int rpc_length = flow_size;
 		// times--;
 		int burst = iodepth;
 		while(1) {
@@ -151,7 +151,7 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth)
 			copied += result;
 			// total_length += result;
 			if(rpc_length == 0) {
-				rpc_length = 64;
+				rpc_length = flow_size;
 				copied = 0;
 				burst -= 1;
 			}
@@ -160,7 +160,7 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth)
 			// return;
 		}
 		copied = 0;
-		rpc_length = 64;
+		rpc_length = flow_size;
 		burst = iodepth;
 		// if(times == -1)
 		// 	break;
@@ -175,7 +175,7 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth)
 			// total_length += result;
 			// printf("send rpc\n");
 			if(rpc_length == 0) {
-				rpc_length = 64;
+				rpc_length = flow_size;
 				copied = 0;
 				burst -= 1;
 			}
@@ -401,7 +401,7 @@ void tcp_connection(int fd, struct sockaddr_in source)
  * (one thread per connection) and processes messages on those connections.
  * @port:  Port number on which to listen.
  */
-void tcp_server(int port, int iodepth)
+void tcp_server(int port, int iodepth, int flow_size)
 {
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
 	int i = 0;
@@ -440,7 +440,7 @@ void tcp_server(int port, int iodepth)
 				strerror(errno));
 			exit(1);
 		}
-		std::thread thread(nd_pingpong, stream, client_addr, iodepth);
+		std::thread thread(nd_pingpong, stream, client_addr, iodepth, flow_size);
 	//	cpu_set_t cpuset;
 	//	CPU_ZERO(&cpuset);
 	//	CPU_SET((i) % 6 * 4, &cpuset);
@@ -749,6 +749,7 @@ int main(int argc, char** argv) {
 	int next_arg;
 	int num_ports = 1;
 	int iodepth = 1;
+	int flow_size = 64; // bytes
 	std::string ip;
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
@@ -785,8 +786,16 @@ int main(int argc, char** argv) {
 			next_arg++;
 			iodepth = get_int(argv[next_arg], 
 				"Bad iodepth %s; must be positive integer\n");
-		} 
-		else if (strcmp(argv[next_arg], "--num_ports") == 0) {
+		} else if (strcmp(argv[next_arg], "--flowsize") == 0) {
+			if (next_arg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[next_arg]);
+				exit(1);
+			}
+			next_arg++;
+			flow_size = get_int(argv[next_arg], 
+				"Bad flow size %s; must be positive integer\n");
+		} else if (strcmp(argv[next_arg], "--num_ports") == 0) {
 			if (next_arg == (argc-1)) {
 				printf("No value provided for %s option\n",
 					argv[next_arg]);
@@ -811,7 +820,7 @@ int main(int argc, char** argv) {
 	// 	printf("port number:%i\n", port + i);
 	// 	workers.push_back(std::thread (homa_server, ip, port+i));
 	// }
-	workers.push_back(std::thread(tcp_server, port, iodepth));
+	workers.push_back(std::thread(tcp_server, port, iodepth, flow_size));
 	// workers.push_back(std::thread(udp_server, port));
 	// workers.push_back(std::thread(nd_server, port));
 	// workers.push_back(std::thread(aggre_thread, &agg_stats));
