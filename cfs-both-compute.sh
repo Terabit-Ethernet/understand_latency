@@ -14,14 +14,14 @@ sudo sysctl -w net.core.latency_breakdown_on=1
 sudo sysctl -w net.core.latency_breakdown_nrfs=0
 echo 100000 | sudo tee /proc/sys/kernel/sched_latency_ns
 echo 100000 | sudo tee /proc/sys/kernel/sched_min_granularity_ns
-echo NO_HRTICK | sudo tee /sys/kernel/debug/sched_features
+echo HRTICK | sudo tee /sys/kernel/debug/sched_features
 echo 1 | sudo tee /sys/kernel/debug/tracing/tracing_on
 LOG=$((997 / N))
 if [[ $N -gt 10 ]]; then LOG=100; fi
 #LOG=249
 sudo sysctl -w net.core.latency_breakdown_log=$LOG
 
-TASKSET="0,4,8,12,16,20,24,28"
+TASKSET="0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60"
 
 # server-side
 ssh jaehyun\@128.84.155.146 -t 'sudo trace-cmd clear'
@@ -29,7 +29,7 @@ ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_on=1'
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_nrfs=0'
 ssh jaehyun\@128.84.155.146 -t 'echo 100000 | sudo tee /proc/sys/kernel/sched_latency_ns'
 ssh jaehyun\@128.84.155.146 -t 'echo 100000 | sudo tee /proc/sys/kernel/sched_min_granularity_ns'
-ssh jaehyun\@128.84.155.146 -t 'echo NO_HRTICK | sudo tee /sys/kernel/debug/sched_features'
+ssh jaehyun\@128.84.155.146 -t 'echo HRTICK | sudo tee /sys/kernel/debug/sched_features'
 ssh jaehyun\@128.84.155.146 -t 'echo 1 | sudo tee /sys/kernel/debug/tracing/tracing_on'
 ssh jaehyun\@128.84.155.146 -t "sudo sysctl -w net.core.latency_breakdown_log=$LOG"
 
