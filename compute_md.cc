@@ -36,7 +36,7 @@ void compute(int id, int n) {
     set_idle_priority();
     while (1) { 
         counter += 1; 
-        if (counter % 100000000ull == 0) {
+        if (counter % 1000000ull == 0) {
             auto now = std::chrono::steady_clock::now();
             if (now - start > std::chrono::seconds(1)) {
                 file << counter * 1000000000ull / std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count()

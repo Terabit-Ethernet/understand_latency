@@ -33,6 +33,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <fcntl.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -102,21 +103,21 @@ void aggre_thread(struct Agg_Stats *stats) {
  *                will arrive.
  * @client_addr:  Information about the client (for messages).
  */
-void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
+void nd_pingpong(int fd, int iodepth, int flow_size)
 {
 	// int flag = 1;
-	int optval = 6;
-	unsigned optlen = 0;
-	char *buffer = (char*)malloc(2359104);
-	int flag;
+	// int optval = 6;
+	// unsigned optlen = 0;
+	char buffer[64];
+	// int flag;
 	// int times = 10000;
 	// int cur_length = 0;
 	// bool streaming = false;
 	uint64_t count = 0;
 	uint64_t total_length = 0;
 	// uint64_t start_cycle = 0, end_cycle = 0;
-	struct sockaddr_in sin;
-	socklen_t len = sizeof(sin);
+	// struct sockaddr_in sin;
+	// socklen_t len = sizeof(sin);
 	// int which = PRIO_PROCESS;
 	// id_t pid;
 
@@ -125,27 +126,25 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 	//std::cout << "ret "<< ret << std::endl;
 	// ret = getpriority(which, pid);
 	// int *int_buffer = reinterpret_cast<int*>(buffer);
-	if (verbose)
-		printf("New ND socket from %s\n", print_address(&source));
+	// if (verbose)
+	// 	printf("New ND socket from %s\n", print_address(&source));
 	// setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
-	if (getsockname(fd, (struct sockaddr *)&sin, &len) == -1)
-	    perror("getsockname");
-	else
-	    printf("port number %d\n", ntohs(sin.sin_port));
+	// if (getsockname(fd, (struct sockaddr *)&sin, &len) == -1)
+	//     perror("getsockname");
+	// else
+	//     printf("port number %d\n", ntohs(sin.sin_port));
 	// start_cycle = rdtsc();
-	setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, unsigned(sizeof(optval)));   
-	getsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, &optlen);
-
-	// printf("sizeof buffer:%ld\n", sizeof(buffer));
+	// setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, unsigned(sizeof(optval)));   
+	// getsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, &optlen);
 	while (1) {
 		int copied = 0;
 		int rpc_length = flow_size;
 		// times--;
 		int burst = iodepth;
 		while(1) {
-			int result = read(fd, buffer + copied,
-				rpc_length);
-			if (result <= 0) {
+			int result = recv(fd, buffer + copied, 64, 0);
+			if (result < 0) {
+					printf("Socket write failed: %s %d\n", strerror(errno), result);
 					goto close;
 			}
 			rpc_length -= result;
@@ -166,13 +165,14 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 		// if(times == -1)
 		// 	break;
 		while(1) {
-			if(burst == 1) {
-				flag = MSG_EOR;
-			} else
-				flag = MSG_MORE;
+			// if(burst == 1) {
+			// 	flag = MSG_EOR;
+			// } else
+			// 	flag = MSG_MORE;
 			int result = send(fd, buffer + copied,
-				rpc_length, flag);
+				rpc_length, 0);
 			if (result <= 0) {
+					printf("Socket write failed: %s %d\n", strerror(errno), result);
 					goto close;
 			}
 			rpc_length -= result;
@@ -192,11 +192,11 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 	}
 		printf( "total len:%" PRIu64 "\n", total_length);
 		printf("done!");
-	if (verbose)
-		printf("Closing TCP socket from %s\n", print_address(&source));
+	// if (verbose)
+	// 	printf("Closing TCP socket from %s\n", print_address(&source));
 close:
 	close(fd);
-	free(buffer);
+	// free(buffer);
 }
 /**
  * homa_server() - Opens a Homa socket and handles all requests arriving on
@@ -308,7 +308,7 @@ void print_help(const char *name)
  */
 void tcp_connection(int fd, struct sockaddr_in source)
 {
-	int flag = 1;
+	// int flag = 1;
 	char buffer[1000000];
 	int cur_length = 0;
 	bool streaming = false;
@@ -320,7 +320,7 @@ void tcp_connection(int fd, struct sockaddr_in source)
 	int *int_buffer = reinterpret_cast<int*>(buffer);
 	if (verbose)
 		printf("New TCP socket from %s\n", print_address(&source));
-	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
+	// setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 	if (getsockname(fd, (struct sockaddr *)&sin, &len) == -1)
 	    perror("getsockname");
 	else
@@ -408,48 +408,55 @@ void tcp_connection(int fd, struct sockaddr_in source)
  */
 void tcp_server(int port, int iodepth, int flow_size)
 {
-	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
+	int listen_fd = socket(AF_INET, SOCK_STREAM, 0);
 	int i = 0;
 	if (listen_fd == -1) {
 		printf("Couldn't open server socket: %s\n", strerror(errno));
 		exit(1);
 	}
-	int option_value = 1;
-	if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &option_value,
-			sizeof(option_value)) != 0) {
-		printf("Couldn't set SO_REUSEADDR on listen socket: %s",
-			strerror(errno));
-		exit(1);
-	}
+	// int option_value = 1;
+	// if (setsockopt(listen_fd, SOL_SOCKET, SO_REUSEADDR, &option_value,
+	// 		sizeof(option_value)) != 0) {
+	// 	printf("Couldn't set SO_REUSEADDR on listen socket: %s",
+	// 		strerror(errno));
+	// 	exit(1);
+	// }
+	// setsockopt(listen_fd, SOL_SOCKET, SO_REUSEPORT, &option_value, sizeof(option_value));
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = INADDR_ANY;
-	if (bind(listen_fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr))
+	// addr.sin_addr.s_addr = INADDR_ANY;
+	if (bind(listen_fd, (struct sockaddr *)(&addr), sizeof(addr))
 			== -1) {
 		printf("Couldn't bind to port %d: %s\n", port, strerror(errno));
 		exit(1);
 	}
-	if (listen(listen_fd, 1000) == -1) {
+	if (listen(listen_fd, 1024) == -1) {
 		printf("Couldn't listen on socket: %s", strerror(errno));
 		exit(1);
 	}
 	while (1) {
-		struct sockaddr_in client_addr;
-		socklen_t addr_len = sizeof(client_addr);
+		// struct sockaddr_in client_addr;
+		// socklen_t addr_len = sizeof(client_addr);
 		int stream = accept(listen_fd,
-				reinterpret_cast<sockaddr *>(&client_addr),
-				&addr_len);
+				NULL,
+				NULL);
 		if (stream < 0) {
 			printf("Couldn't accept incoming connection: %s",
 				strerror(errno));
-			exit(1);
 		}
-		std::thread thread(nd_pingpong, stream, client_addr, iodepth, flow_size);
-		// cpu_set_t cpuset;
-		// CPU_ZERO(&cpuset);
-		// CPU_SET((i) % 16 * 4, &cpuset);
-		// pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
+		// int flag;
+		// if ((flag = fcntl(stream, F_GETFL, 0)) == -1) {
+		// 	return;
+		// }
+		// flag |= O_NONBLOCK;
+		// fcntl(stream, F_SETFL, flag);
+				
+		std::thread thread(nd_pingpong, stream, iodepth, flow_size);
+	//	cpu_set_t cpuset;
+	//	CPU_ZERO(&cpuset);
+	//	CPU_SET((i) % 5 * 4, &cpuset);
+	//	pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
 		thread.detach();
 		i += 1;
 	}
