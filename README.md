@@ -15,5 +15,14 @@
   ```
   TAS performance is not very stable, we pick the best possible performance.
   
+2. IO Depth,
+```
+sudo ./run_mc_all_params_iodepth.sh
+```
+3. Flow Size,
+```
+run_mc_all_params_flowsize.sh
+```
+
 ## Note
 1. trace_printk will discard some output for the latency breakdown. https://stackoverflow.com/questions/57141796/how-to-print-full-trace-file-of-trace-printk-in-ftrace
