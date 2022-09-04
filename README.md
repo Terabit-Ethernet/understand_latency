@@ -16,12 +16,22 @@
   TAS performance is not very stable, we pick the best possible performance.
   
 2. IO Depth,
+
 ```
 sudo ./run_mc_all_params_iodepth.sh
 ```
+
+```
+sudo ./run_mc_all_params_tas_iodepth.sh
+```
+
 3. Flow Size,
 ```
 run_mc_all_params_flowsize.sh
+```
+
+```
+sudo ./run_mc_all_params_tas_flowsize.sh
 ```
 
 ## Note
