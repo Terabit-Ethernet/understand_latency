@@ -166,10 +166,11 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 		// if(times == -1)
 		// 	break;
 		while(1) {
-			if(burst == 1) {
-				flag = MSG_EOR;
-			} else
-				flag = MSG_MORE;
+			// if(burst == 1) {
+			//	flag = MSG_EOR;
+			// } else
+			// 	flag = MSG_MORE;
+			flag = 0;
 			int result = send(fd, buffer + copied,
 				rpc_length, flag);
 			if (result <= 0) {
