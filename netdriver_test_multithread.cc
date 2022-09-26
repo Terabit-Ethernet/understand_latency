@@ -136,15 +136,16 @@ void test_ndping_send(int fd, struct sockaddr *dest, int id, int io_depth, int f
 			// flag = (q_depth == count + 1)? MSG_EOR : MSG_EOR;
 			count = (count + 1) % q_depth;
 			// flag = (limit - time_q.size() == 1)? MSG_EOR: MSG_EOR;
-			flag = MSG_EOR;
+			flag = 0;
 			while(burst > 0) {
 				total = 0;
 				time_q.push(rdtsc());
 				while(total < flow_size) {
-					if (burst == 1)
-						flag = MSG_EOR;
-					else
-						flag = MSG_MORE;
+					// if (burst == 1)
+					// 	flag = MSG_EOR;
+					// else
+					// 	flag = MSG_MORE;
+				//	printf("send time:%f\n", to_seconds(rdtsc()));
 					int result = send(fd, buffer, flow_size - total, flag);
 					if( result < 0 ) {
 						if(errno == EMSGSIZE) {
