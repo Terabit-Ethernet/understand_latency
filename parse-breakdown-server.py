@@ -29,7 +29,7 @@ for line in lines:
     if m is not None:
         timestamps = list(map(int, m.groups()))
         if len(timestamps) == 23:
-            port = timestamps[0]
+            port = 0
             rx_hw = timestamps[2]
             rx_alloc = timestamps[3]
             rx_irq = timestamps[4]
@@ -97,7 +97,7 @@ for port, ss in samples.items():
 #            'rx_gro': ts['rx_ip'] - ts['rx_gro'],
             'rx_ip': ts['rx_tcp'] - ts['rx_gro'],
             'rx_tcp': ts['rx_ready'] - ts['rx_tcp'],
-            'rx_sched': ts['rx_wake_up'] - ts['rx_ready'],
+            'rx_sched': ts['rx_data_copy'] - ts['rx_ready'],
             'rx_data_copy': ts['rx_return'] - ts['rx_data_copy'],
             'app': ts['tx_write'] - ts['rx_return'],
             'tx_data_copy': ts['tx_tcp'] - ts['tx_data_copy'],
@@ -141,11 +141,11 @@ for port, ls in latencies.items():
 for port, ts in tails.items():
     tail[port] = {}
     for k, v in ts.items():
-        tail[port][k] = sorted(v)[round(0.99 * len(v)) - 1]
+        tail[port][k] = (v)[round(0.99 * len(v)) - 1]
 for port, ts in tails.items():
     tail999[port] = {}
     for k, v in ts.items():
-        tail999[port][k] = sorted(v)[round(0.999 * len(v)) - 1]
+        tail999[port][k] = (v)[round(0.999 * len(v)) - 1]
 
 # Print latency breakdown
 categories = ['rx_irq', 'rx_napi', 'rx_ip', 'rx_tcp', 'rx_sched', 'rx_data_copy', 'app', 'tx_data_copy', 'tx_tcp', 'tx_ip', 'tx_queue', 'tx_xmit', 'full']
