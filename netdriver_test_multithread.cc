@@ -124,75 +124,83 @@ void test_ndping_send(int fd, struct sockaddr *dest, int id, int io_depth, int f
 	
 	lfile.open("temp/netperf-" + std::to_string(id)+".log");
 	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
-	int q_depth = 64, count = 0;
+	//int q_depth = 64, count = 0;
 	    // for (int i = 0; i < count * 100; i++) {
-		while(1) {
-
-	    	int total = 0;
-			int burst = io_depth;
-			// std::unique_lock<std::mutex> lck(mtx);
-			// cv.wait(lck, queue_available);
-			end = rdtsc();
-			// flag = (q_depth == count + 1)? MSG_EOR : MSG_EOR;
-			count = (count + 1) % q_depth;
-			// flag = (limit - time_q.size() == 1)? MSG_EOR: MSG_EOR;
-			flag = 0;
-			while(burst > 0) {
-				total = 0;
-				time_q.push(rdtsc());
-				while(total < flow_size) {
-					// if (burst == 1)
-					// 	flag = MSG_EOR;
-					// else
-					// 	flag = MSG_MORE;
-				//	printf("send time:%f\n", to_seconds(rdtsc()));
-					int result = send(fd, buffer, flow_size - total, flag);
-					if( result < 0 ) {
-						if(errno == EMSGSIZE) {
-							printf("Socket write failed: %s %d\n", strerror(errno), result);
-							break;
-						}
-					} else {
-						write_len += result;
-						total += result;
-						sent_bytes += result;	
-
-					}
+		/* init burst io_depth packet */
+	int total = 0;
+	int burst = io_depth;
+	while(burst > 0) {
+		total = 0;
+		time_q.push(rdtsc());
+		while(total < flow_size) {
+			// if (burst == 1)
+			// 	flag = MSG_EOR;
+			// else
+			// 	flag = MSG_MORE;
+		//	printf("send time:%f\n", to_seconds(rdtsc()));
+			int result = send(fd, buffer + total, flow_size - total, flag);
+			if( result < 0 ) {
+				if(errno == EMSGSIZE) {
+					printf("Socket write failed: %s %d\n", strerror(errno), result);
+					break;
 				}
-				burst--;
+			} else {
+				write_len += result;
+				total += result;
+				sent_bytes += result;	
+
 			}
-			burst = io_depth;
-			while(burst > 0) {
-				total = 0;
-				while(total < flow_size) {
-					int result = read(fd, buffer, flow_size - total);	
-					if( result < 0 ) {
-						if(errno == EMSGSIZE) {
-							printf("Socket write failed: %s %d\n", strerror(errno), result);
-							break;
-						}
-					} else {
-						total += result;
-					}
-					if(total == flow_size) {
-						uint64_t start = time_q.front();
-						end = rdtsc();
-						latency.push_back(to_seconds(end - start));
-						time_q.pop();
-					}
+		}
+		burst--;
+	}
+	while(1) {
+		end = rdtsc();
+		/* receive one response */
+		total = 0;
+		while(total < flow_size) {
+			int result = read(fd, buffer + total, flow_size - total);	
+			if( result < 0 ) {
+				if(errno == EMSGSIZE) {
+					printf("Socket write failed: %s %d\n", strerror(errno), result);
+					break;
 				}
-				burst--;
+			} else {
+				total += result;
 			}
-			// time_q.push(end);
-			if(to_seconds(end-start_time) > times)
-				break;
-		
+			if(total == flow_size) {
+				uint64_t start = time_q.front();
+				end = rdtsc();
+				latency.push_back(to_seconds(end - start));
+				time_q.pop();
+			}
 		}
-		tfile <<   sent_bytes * 8 / to_seconds(end - start_time)  << std::endl;
-		for(uint32_t i = 0; i < latency.size(); i++) {
-			lfile << "finish time: " << latency[i] << "\n"; 
-			// std::cout << "finish time: " << latency[i] << "\n"; 
+		/* send out one request */
+		total = 0;
+		time_q.push(rdtsc());
+		total = 0;
+		while(total < flow_size) {
+			int result = send(fd, buffer + total, flow_size - total, flag);
+			if( result < 0 ) {
+				if(errno == EMSGSIZE) {
+					printf("Socket write failed: %s %d\n", strerror(errno), result);
+					break;
+				}
+			} else {
+				write_len += result;
+				total += result;
+				sent_bytes += result;	
+			}
 		}
+		// time_q.push(end);
+		if(to_seconds(end-start_time) > times)
+			break;
+	
+	}
+	tfile <<   sent_bytes * 8 / to_seconds(end - start_time)  << std::endl;
+	for(uint32_t i = 0; i < latency.size(); i++) {
+		lfile << "finish time: " << latency[i] << "\n"; 
+		// std::cout << "finish time: " << latency[i] << "\n"; 
+	}
 	lfile.close();
 	tfile.close();
 	close(fd);
