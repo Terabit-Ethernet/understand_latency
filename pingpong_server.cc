@@ -141,7 +141,7 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 		int copied = 0;
 		int rpc_length = flow_size;
 		// times--;
-		int burst = iodepth;
+		// int burst = iodepth;
 		while(1) {
 			int result = read(fd, buffer + copied,
 				rpc_length);
@@ -154,15 +154,16 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 			if(rpc_length == 0) {
 				rpc_length = flow_size;
 				copied = 0;
-				burst -= 1;
-			}
-			if(burst == 0)
+				// burst -= 1;
 				break;
+			}
+			// if(burst == 0)
+			// 	break;
 			// return;
 		}
 		copied = 0;
 		rpc_length = flow_size;
-		burst = iodepth;
+		// burst = iodepth;
 		// if(times == -1)
 		// 	break;
 		while(1) {
@@ -173,6 +174,7 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 			flag = 0;
 			int result = send(fd, buffer + copied,
 				rpc_length, flag);
+
 			if (result <= 0) {
 					goto close;
 			}
@@ -183,10 +185,11 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 			if(rpc_length == 0) {
 				rpc_length = flow_size;
 				copied = 0;
-				burst -= 1;
-			}
-			if(burst == 0)
+				// burst -= 1;
 				break;
+			}
+			// if(burst == 0)
+			// 	break;
 			// return;
 		}
 		count++;
