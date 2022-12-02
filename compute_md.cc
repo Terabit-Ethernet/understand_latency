@@ -29,11 +29,12 @@ void set_idle_priority(void) {
         if (s != 0) printf("Pthread_setschedparam error!n");
 }
 
-void compute(int id, int n) {
+void compute(int id, int n, int mode) {
     auto start = std::chrono::steady_clock::now();
     unsigned long long counter = 0;
     std::ofstream file("./temp/compute_" + std::to_string(id) + "-" + std::to_string(n) + ".log", fstream::out);
-    set_idle_priority();
+    if(mode == 1)
+        set_idle_priority();
     while (1) { 
         counter += 1; 
         if (counter % 1000000ull == 0) {
@@ -54,11 +55,14 @@ void compute(int id, int n) {
 
 int main (int argc, char** argv) {
     int num_threads = get_int(argv[1], "bad thread num:%s\n");
+    /* mode = 0, SCHE_IDLE; mode = 1, normal CFS */
+    int mode = get_int(argv[2], "bad mode num:%s\n");
     std::vector<std::thread> workers;
     for (int  i = 0; i < num_threads; i++) {
-        workers.push_back(std::thread(compute, i, num_threads));
+        workers.push_back(std::thread(compute, i, num_threads, mode));
     }
-    set_idle_priority();
+    if(mode == 1)
+        set_idle_priority();
     for(unsigned i = 0; i < workers.size(); i++) {
             workers[i].join();
     }
