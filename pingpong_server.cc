@@ -410,8 +410,9 @@ void tcp_connection(int fd, struct sockaddr_in source)
  * (one thread per connection) and processes messages on those connections.
  * @port:  Port number on which to listen.
  */
-void tcp_server(int port, int iodepth, int flow_size)
+void tcp_server(int port, int iodepth, int flow_size, bool pin)
 {
+	int cpu_list[16] = {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
 	int i = 0;
 	if (listen_fd == -1) {
@@ -450,11 +451,13 @@ void tcp_server(int port, int iodepth, int flow_size)
 			exit(1);
 		}
 		std::thread thread(nd_pingpong, stream, client_addr, iodepth, flow_size);
-		// cpu_set_t cpuset;
-		// CPU_ZERO(&cpuset);
-		// CPU_SET((i) % 16 * 4, &cpuset);
-		// pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
-		thread.detach();
+		if(pin) {
+			cpu_set_t cpuset;
+			CPU_ZERO(&cpuset);
+			CPU_SET(cpu_list[(i) % 16], &cpuset);
+			pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
+		}
+	    thread.detach();
 		i += 1;
 	}
 }
@@ -759,6 +762,7 @@ int main(int argc, char** argv) {
 	int num_ports = 1;
 	int iodepth = 1;
 	int flow_size = 64; // bytes
+	bool pin = false;
 	std::string ip;
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
@@ -815,6 +819,8 @@ int main(int argc, char** argv) {
 				"Bad num_ports %s; must be positive integer\n");
 		} else if (strcmp(argv[next_arg], "--validate") == 0) {
 			validate = true;
+		}else if (strcmp(argv[next_arg], "--pin") == 0) {
+			pin = true;
 		} else if (strcmp(argv[next_arg], "--verbose") == 0) {
 			verbose = true;
 		} else {
@@ -829,7 +835,7 @@ int main(int argc, char** argv) {
 	// 	printf("port number:%i\n", port + i);
 	// 	workers.push_back(std::thread (homa_server, ip, port+i));
 	// }
-	workers.push_back(std::thread(tcp_server, port, iodepth, flow_size));
+	workers.push_back(std::thread(tcp_server, port, iodepth, flow_size, pin));
 	// workers.push_back(std::thread(udp_server, port));
 	// workers.push_back(std::thread(nd_server, port));
 	// workers.push_back(std::thread(aggre_thread, &agg_stats));
