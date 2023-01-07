@@ -31,7 +31,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <list>
-
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -880,7 +879,14 @@ int main(int argc, char** argv) {
 		} else if (strcmp(argv[next_arg], "--verbose") == 0) {
 			verbose = true;
 		} else if (strcmp(argv[next_arg], "--count") == 0) {
-			count = true;
+			if (next_arg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[next_arg]);
+				exit(1);
+			}
+			next_arg++;
+			count = get_int(argv[next_arg],
+				"Bad num of threads %s; must be positive integer\n");
 		}  else {
 			printf("Unknown option %s; type '%s --help' for help\n",
 				argv[next_arg], argv[0]);
