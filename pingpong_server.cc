@@ -412,7 +412,8 @@ void tcp_connection(int fd, struct sockaddr_in source)
  */
 void tcp_server(int port, int iodepth, int flow_size, bool pin)
 {
-	int cpu_list[16] = {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+	//int cpu_list[16] = {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
+	int cpu_list[2] = {0, 32};
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
 	int i = 0;
 	if (listen_fd == -1) {
@@ -454,7 +455,7 @@ void tcp_server(int port, int iodepth, int flow_size, bool pin)
 		if(pin) {
 			cpu_set_t cpuset;
 			CPU_ZERO(&cpuset);
-			CPU_SET(cpu_list[(i) % 16], &cpuset);
+			CPU_SET(cpu_list[(i) % 2], &cpuset);
 			pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
 		}
 	    thread.detach();
