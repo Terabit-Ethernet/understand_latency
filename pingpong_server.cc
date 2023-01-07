@@ -28,6 +28,9 @@
 #include <chrono>         // std::chrono::seconds
 
 #include <iostream>
+#include <mutex>
+#include <condition_variable>
+#include <list>
 
 #include <errno.h>
 #include <netdb.h>
@@ -62,6 +65,21 @@ int port = 4000;
 bool validate = false;
 
 
+
+class Conn_Data {
+public:
+	int fd;
+	struct sockaddr_in source;
+	int iodepth;
+	int flow_size;
+	Conn_Data(int fd, struct sockaddr_in source, int iodepth, int flow_size) {
+		this->fd = fd;
+		this->source = source;
+		this->iodepth = iodepth;
+		this->flow_size = flow_size;	
+	}
+	Conn_Data(){}
+};
 struct Agg_Stats {
 	std::atomic<unsigned long> total_bytes;
 	std::atomic<unsigned long> interval_bytes;
@@ -76,6 +94,10 @@ void init_agg_stats(struct Agg_Stats* stats, int interval_sec) {
 	stats->start_cycle = rdtsc();
 	stats->interval_sec = interval_sec;
 }
+
+std::mutex m;
+std::condition_variable cv;
+std::list<Conn_Data> socklist;
 
 void aggre_thread(struct Agg_Stats *stats) {
 	init_agg_stats(stats, 1);
@@ -102,13 +124,29 @@ void aggre_thread(struct Agg_Stats *stats) {
  *                will arrive.
  * @client_addr:  Information about the client (for messages).
  */
-void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
+void nd_pingpong()
 {
 	// int flag = 1;
+	int fd = 0;
+	Conn_Data data;
 	int optval = 6;
 	unsigned optlen = 0;
 	char *buffer = (char*)malloc(2359104);
 	int flag;
+	struct sockaddr_in source;
+	// int iodepth;
+	int flow_size;
+    std::unique_lock lk(m);
+    cv.wait(lk, []{return !socklist.empty();});
+	data = socklist.front();
+	socklist.pop_front();
+    lk.unlock();
+	fd = data.fd;
+	source = data.source;
+	// iodepth = data.iodepth;
+	flow_size = data.flow_size;
+    // cv.notify_one();
+
 	// int times = 10000;
 	// int cur_length = 0;
 	// bool streaming = false;
@@ -410,11 +448,12 @@ void tcp_connection(int fd, struct sockaddr_in source)
  * (one thread per connection) and processes messages on those connections.
  * @port:  Port number on which to listen.
  */
-void tcp_server(int port, int iodepth, int flow_size, bool pin)
+void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 {
 	//int cpu_list[16] = {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
 	int cpu_list[2] = {0, 32};
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
+ 	std::unique_lock<std::mutex> lk(m,  std::defer_lock);
 	int i = 0;
 	if (listen_fd == -1) {
 		printf("Couldn't open server socket: %s\n", strerror(errno));
@@ -426,6 +465,16 @@ void tcp_server(int port, int iodepth, int flow_size, bool pin)
 		printf("Couldn't set SO_REUSEADDR on listen socket: %s",
 			strerror(errno));
 		exit(1);
+	}
+	for (i = 0; i < num_threads; i++) {
+		std::thread thread(nd_pingpong);
+		if(pin) {
+			cpu_set_t cpuset;
+			CPU_ZERO(&cpuset);
+			CPU_SET(cpu_list[(i) % 2], &cpuset);
+			pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
+		}
+	    thread.detach();
 	}
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
@@ -446,19 +495,24 @@ void tcp_server(int port, int iodepth, int flow_size, bool pin)
 		int stream = accept(listen_fd,
 				reinterpret_cast<sockaddr *>(&client_addr),
 				&addr_len);
+		lk.lock();
+		socklist.push_back(Conn_Data(stream, client_addr, iodepth, flow_size));
+		lk.unlock();
+		cv.notify_one();
 		if (stream < 0) {
 			printf("Couldn't accept incoming connection: %s",
 				strerror(errno));
 			exit(1);
 		}
-		std::thread thread(nd_pingpong, stream, client_addr, iodepth, flow_size);
-		if(pin) {
-			cpu_set_t cpuset;
-			CPU_ZERO(&cpuset);
-			CPU_SET(cpu_list[(i) % 2], &cpuset);
-			pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
-		}
-	    thread.detach();
+		
+		// std::thread thread(nd_pingpong, stream, client_addr, iodepth, flow_size);
+		// if(pin) {
+		// 	cpu_set_t cpuset;
+		// 	CPU_ZERO(&cpuset);
+		// 	CPU_SET(cpu_list[(i) % 2], &cpuset);
+		// 	pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
+		// }
+	    // thread.detach();
 		i += 1;
 	}
 }
@@ -764,6 +818,7 @@ int main(int argc, char** argv) {
 	int iodepth = 1;
 	int flow_size = 64; // bytes
 	bool pin = false;
+	int count = 1;
 	std::string ip;
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
@@ -824,7 +879,9 @@ int main(int argc, char** argv) {
 			pin = true;
 		} else if (strcmp(argv[next_arg], "--verbose") == 0) {
 			verbose = true;
-		} else {
+		} else if (strcmp(argv[next_arg], "--count") == 0) {
+			count = true;
+		}  else {
 			printf("Unknown option %s; type '%s --help' for help\n",
 				argv[next_arg], argv[0]);
 			exit(1);
@@ -836,7 +893,7 @@ int main(int argc, char** argv) {
 	// 	printf("port number:%i\n", port + i);
 	// 	workers.push_back(std::thread (homa_server, ip, port+i));
 	// }
-	workers.push_back(std::thread(tcp_server, port, iodepth, flow_size, pin));
+	workers.push_back(std::thread(tcp_server, port, count, iodepth, flow_size, pin));
 	// workers.push_back(std::thread(udp_server, port));
 	// workers.push_back(std::thread(nd_server, port));
 	// workers.push_back(std::thread(aggre_thread, &agg_stats));
