@@ -43,6 +43,7 @@
 #include <netinet/ip.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/syscall.h>
 #include <inttypes.h>
 #include <thread>
 #include <vector>
@@ -155,9 +156,7 @@ void nd_pingpong()
 	struct sockaddr_in sin;
 	socklen_t len = sizeof(sin);
 	// int which = PRIO_PROCESS;
-	id_t pid;
-
-	pid = getpid();
+	pid_t pid = syscall(__NR_gettid);
 	//ret = setpriority(which, pid, -20);
 	//std::cout << "ret "<< ret << std::endl;
 	// ret = getpriority(which, pid);
