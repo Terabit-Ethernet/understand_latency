@@ -155,9 +155,9 @@ void nd_pingpong()
 	struct sockaddr_in sin;
 	socklen_t len = sizeof(sin);
 	// int which = PRIO_PROCESS;
-	// id_t pid;
+	id_t pid;
 
-	// pid = getpid();
+	pid = getpid();
 	//ret = setpriority(which, pid, -20);
 	//std::cout << "ret "<< ret << std::endl;
 	// ret = getpriority(which, pid);
@@ -168,7 +168,7 @@ void nd_pingpong()
 	if (getsockname(fd, (struct sockaddr *)&sin, &len) == -1)
 	    perror("getsockname");
 	else
-	    printf("port number %d\n", ntohs(sin.sin_port));
+	    printf("pid:%d port number %d\n", pid, ntohs(sin.sin_port));
 	// start_cycle = rdtsc();
 	setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, unsigned(sizeof(optval)));   
 	getsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, &optlen);
