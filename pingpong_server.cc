@@ -167,8 +167,7 @@ void nd_pingpong()
 	// setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
 	if (getsockname(fd, (struct sockaddr *)&sin, &len) == -1)
 	    perror("getsockname");
-	else
-	    printf("pid:%d port number %d\n", pid, ntohs(sin.sin_port));
+	printf("pid:%d port number %d\n", pid, ntohs(sin.sin_port));
 	// start_cycle = rdtsc();
 	setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, unsigned(sizeof(optval)));   
 	getsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, &optlen);
