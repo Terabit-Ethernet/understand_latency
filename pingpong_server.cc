@@ -136,6 +136,7 @@ void nd_pingpong()
 	struct sockaddr_in source;
 	// int iodepth;
 	int flow_size;
+	unsigned int cpu, node;
     std::unique_lock lk(m);
     cv.wait(lk, []{return !socklist.empty();});
 	data = socklist.front();
@@ -164,9 +165,11 @@ void nd_pingpong()
 	if (verbose)
 		printf("New ND socket from %s\n", print_address(&source));
 	// setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(flag));
-	if (getsockname(fd, (struct sockaddr *)&sin, &len) == -1)
+	if (getpeername(fd, (struct sockaddr *)&sin, &len) == -1)
 	    perror("getsockname");
-	printf("pid:%d port number %d\n", pid, ntohs(source.sin_port));
+	getcpu(&cpu, &node);
+	printf("core: %d pid: %d port number: %d\n",cpu,  pid, ntohs(sin.sin_port));
+	fflush (stdout);
 	// start_cycle = rdtsc();
 	setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, unsigned(sizeof(optval)));   
 	getsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, &optlen);
