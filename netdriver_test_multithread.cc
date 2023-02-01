@@ -39,6 +39,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <sys/syscall.h>
 #include <arpa/inet.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -73,6 +74,7 @@ std::mutex mtx;           // mutex for critical section
 std::condition_variable cv;
 int limit = 1024;
 // bool queue_available() {return time_q.size() < (long unsigned int)limit;}
+volatile int stop_count;
 
 /**
  * close_fd() - Helper method for "close" test: sleeps a while, then closes
@@ -107,26 +109,39 @@ void print_help(const char *name)
 }
 
 
-void test_ndping_send(int fd, struct sockaddr *dest, int id, int io_depth, int flow_size)
+void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size)
 {
 
 	std::queue<uint64_t> time_q;
 	char *buffer = (char*)malloc(1000000);
+	int fd;
+	unsigned int cpu, node;
 	// uint64_t flow_size = 10000000000000;
-	int times = 300;
+	// int times = 100;
 	int flag = 0;
 	std::vector<double> latency;
 	uint64_t write_len = 0;
 	uint64_t start_time = rdtsc();
 	uint64_t end = rdtsc();
 	uint64_t sent_bytes = 0;
+	uint64_t max_size = 10000000;
 	std::ofstream lfile, tfile;
-	
+	pid_t pid = syscall(__NR_gettid);
+	struct sockaddr_in client;
+	socklen_t clientsz = sizeof(client);
 	lfile.open("temp/netperf-" + std::to_string(id)+".log");
 	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
 	//int q_depth = 64, count = 0;
 	    // for (int i = 0; i < count * 100; i++) {
 		/* init burst io_depth packet */
+	fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (connect(fd, dest, sizeof(struct sockaddr_in)) == -1) {
+		printf("Couldn't connect to dest %s\n", strerror(errno));
+		exit(1);
+	}
+	getsockname(fd, (struct sockaddr *) &client, &clientsz);
+	getcpu(&cpu, &node);
+	printf("cpu: %d pid: %d client port: %d\n", cpu, pid, ntohs(client.sin_port));
 	int total = 0;
 	int burst = io_depth;
 	while(burst > 0) {
@@ -192,12 +207,13 @@ void test_ndping_send(int fd, struct sockaddr *dest, int id, int io_depth, int f
 			}
 		}
 		// time_q.push(end);
-		if(to_seconds(end-start_time) > times)
+		if(stop_count == 1)
 			break;
 	
 	}
-	tfile <<   sent_bytes * 8 / to_seconds(end - start_time)  << std::endl;
-	for(uint32_t i = 0; i < latency.size(); i++) {
+	tfile <<   pid << " " << ntohs(client.sin_port) << " " << sent_bytes  / to_seconds(end - start_time) / flow_size  << std::endl;
+	max_size = (latency.size() > max_size) ? max_size : latency.size();
+	for(uint32_t i = 0; i < max_size; i++) {
 		lfile << "finish time: " << latency[i] << "\n"; 
 		// std::cout << "finish time: " << latency[i] << "\n"; 
 	}
@@ -260,7 +276,7 @@ void test_ndping_send(int fd, struct sockaddr *dest, int id, int io_depth, int f
 void test_tcppingpong(int fd, struct sockaddr *dest, int id)
 {
 	// int flag = 1;
-	int times = 90;
+	// int times = 90;
 	char buffer[5000];
 	std::ofstream file;
 	file.open("result_tcp_pingpong_"+ std::to_string(id));
@@ -268,14 +284,14 @@ void test_tcppingpong(int fd, struct sockaddr *dest, int id)
 	// bool streaming = false;
 	uint64_t count = 0;
 	// uint64_t total_length = 0;
-	uint64_t start_time;
+	// uint64_t start_time;
 	std::vector<double> latency;
 	printf("reach here1\n");
 	if (connect(fd, dest, sizeof(struct sockaddr_in)) == -1) {
 		printf("Couldn't connect to dest %s\n", strerror(errno));
 		exit(1);
 	}
-	start_time = rdtsc();
+	// start_time = rdtsc();
 	while (1) {
 		int copied = 0;
 		int rpc_length = 4096;
@@ -316,7 +332,7 @@ void test_tcppingpong(int fd, struct sockaddr *dest, int id)
 		end = rdtsc();
 		latency.push_back(to_seconds(end-start));
 		// printf("finsh time: %f cycles:%lu\n",  to_seconds(end-start), end-start);
-		if(to_seconds(end-start_time) > times)
+		if(stop_count == 1)
 			break;
 	//	if (total_length <= 8000000)
 	//	 	printf("buffer:%s\n", buffer);
@@ -427,21 +443,25 @@ int main(int argc, char** argv)
 {
 	int port, nextArg, tempArg, optval;
 	unsigned optlen;
-	struct sockaddr_in addr_in;
+	// struct sockaddr_in addr_in;
 	struct addrinfo *matching_addresses;
 	struct sockaddr *dest;
 	struct addrinfo hints;
 	char *host, *port_name;
  	std::vector<std::thread> workers;
+	int cpu_list[16] = {0, 32, 4, 36, 8, 40, 12, 44, 16, 48, 20, 52, 24, 56, 28, 60};
+//	int cpu_list[8] = {0, 4, 8, 12, 16, 20, 24, 28};
 	// char buffer[8000000] = "abcdefgh\n";
 	char *buffer = (char*)malloc(10000000);
+	bool pin = false;
 	int flow_size = 64;
 	// buffer[63999] = 'H';
 	int status;
 	int fd;
 	int i;
-	int srcPort = 0;
+	// int srcPort = 0;
 	int io_depth = 1;
+	stop_count = 0;
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
 		exit(0);
@@ -468,6 +488,8 @@ int main(int argc, char** argv)
 		if (strcmp(argv[nextArg], "--help") == 0) {
 			print_help(argv[0]);
 			exit(0);
+		} else if (strcmp(argv[nextArg], "--pin") == 0) {
+			pin = true;
 		} else if (strcmp(argv[nextArg], "--count") == 0) {
 			if (nextArg == (argc-1)) {
 				printf("No value provided for %s option\n",
@@ -498,8 +520,8 @@ int main(int argc, char** argv)
 				exit(1);
 			}
 			nextArg++;
-			srcPort = get_int(argv[nextArg],
-				"Bad srcPort %s; must be positive integer\n");
+			// srcPort = get_int(argv[nextArg],
+			// 	"Bad srcPort %s; must be positive integer\n");
 		} else if (strcmp(argv[nextArg], "--limit") == 0) {
 			if (nextArg == (argc-1)) {
 				printf("No value provided for %s option\n",
@@ -552,10 +574,10 @@ int main(int argc, char** argv)
 	tempArg = nextArg;
 	for(i = 0; i < count; i++) {
 		nextArg = tempArg;
-		memset(&addr_in, 0, sizeof(addr_in));
-		addr_in.sin_family = AF_INET;
-		addr_in.sin_port = htons(srcPort + i);
-		addr_in.sin_addr.s_addr = inet_addr("192.168.10.125");
+		// memset(&addr_in, 0, sizeof(addr_in));
+		// addr_in.sin_family = AF_INET;
+		// addr_in.sin_port = htons(srcPort + i);
+		// addr_in.sin_addr.s_addr = inet_addr("192.168.10.125");
 
 
 		// if (bind(fd, (struct sockaddr *) &addr_in, sizeof(addr_in)) != 0) {
@@ -566,17 +588,13 @@ int main(int argc, char** argv)
 
 		for ( ; nextArg < argc; nextArg++) {
 			if (strcmp(argv[nextArg], "tcpppasync") == 0) {
-				fd = socket(AF_INET, SOCK_STREAM, 0);
-				if (connect(fd, dest, sizeof(struct sockaddr_in)) == -1) {
-					printf("Couldn't connect to dest %s\n", strerror(errno));
-					exit(1);
-				}
-				workers.push_back(std::thread(test_ndping_send, fd, dest, i, io_depth, flow_size));
-				// cpu_set_t cpuset;
-				// CPU_ZERO(&cpuset);
-				// CPU_SET((i) % 16 * 4, &cpuset);
-				// pthread_setaffinity_np(workers[workers.size() - 1].native_handle(), sizeof(cpu_set_t), &cpuset);
-				
+				workers.push_back(std::thread(test_ndping_send, dest, i, io_depth, flow_size));
+				if(pin) {
+					cpu_set_t cpuset;
+					CPU_ZERO(&cpuset);
+					CPU_SET(cpu_list[(i) % 2], &cpuset);
+					pthread_setaffinity_np(workers[workers.size() - 1].native_handle(), sizeof(cpu_set_t), &cpuset);
+				}	
 				//workers.push_back(std::thread(test_ndping_recv, fd, dest, srcPort - 10000));
 			} else if (strcmp(argv[nextArg], "tcppingpong") == 0) {
 				fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -592,8 +610,9 @@ int main(int argc, char** argv)
 			}
 		}
 	}
-       std::this_thread::sleep_for (std::chrono::seconds(100));
-
+	
+    std::this_thread::sleep_for (std::chrono::seconds(120));
+	stop_count = 1;
 	for(unsigned i = 0; i < workers.size(); i++) {
 		workers[i].join();
 	}
