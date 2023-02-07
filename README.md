@@ -5,9 +5,9 @@
 2. Check the hw time and os time diff: `sudo phc_ctl ens2f1 cmp`.
 
 ## Running experiments
-1. Hyperthreading experiments, 
+
   ```
-  sudo ./run_mc_all_params_hd.sh 
+  sudo ./run_mc_all_params.sh 
   ```
   Running TAS (linux 5.4),
   ```

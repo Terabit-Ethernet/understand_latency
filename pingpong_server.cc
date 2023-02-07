@@ -450,8 +450,9 @@ void tcp_connection(int fd, struct sockaddr_in source)
  */
 void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 {
-	//int cpu_list[16] = {0, 4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60};
-	int cpu_list[2] = {0, 32};
+	int cpu_list[16] = {0, 32, 4, 36, 8, 40, 12, 44, 16, 48, 20, 52, 24, 56, 28, 60};
+	// int cpu_list[2] = {0, 32};
+	//int cpu_list[8] = {0, 4, 8, 12, 16, 20, 24, 28};
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
  	std::unique_lock<std::mutex> lk(m,  std::defer_lock);
 	int i = 0;
