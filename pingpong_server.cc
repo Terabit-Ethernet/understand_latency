@@ -158,6 +158,9 @@ void nd_pingpong()
 	socklen_t len = sizeof(sin);
 	// int which = PRIO_PROCESS;
 	pid_t pid = syscall(__NR_gettid);
+//	struct sched_param param;
+//  	param.sched_priority = 99;
+//    	sched_setscheduler(pid, SCHED_RR, &param);
 	//ret = setpriority(which, pid, -20);
 	//std::cout << "ret "<< ret << std::endl;
 	// ret = getpriority(which, pid);
@@ -456,6 +459,7 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
  	std::unique_lock<std::mutex> lk(m,  std::defer_lock);
 	int i = 0;
+	int threads_per_core = num_threads / 2;
 	if (listen_fd == -1) {
 		printf("Couldn't open server socket: %s\n", strerror(errno));
 		exit(1);
@@ -472,7 +476,7 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 		if(pin) {
 			cpu_set_t cpuset;
 			CPU_ZERO(&cpuset);
-			CPU_SET(cpu_list[(i) % 2], &cpuset);
+			CPU_SET(cpu_list[i / threads_per_core], &cpuset);
 			pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
 		}
 	    thread.detach();
