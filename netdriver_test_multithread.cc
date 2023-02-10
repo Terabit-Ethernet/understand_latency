@@ -49,7 +49,7 @@
 #include <thread>
 #include <mutex>          // std::mutex
 #include <condition_variable> // std::condition_variable
-
+#include <sched.h>
 //#include "../uapi_linux_nd.h"
 #include "test_utils.h"
 #ifndef ETH_MAX_MTU
@@ -129,6 +129,9 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	pid_t pid = syscall(__NR_gettid);
 	struct sockaddr_in client;
 	socklen_t clientsz = sizeof(client);
+//	struct sched_param param;
+//   	param.sched_priority = 99;
+//    	sched_setscheduler(pid, SCHED_RR, &param);
 	lfile.open("temp/netperf-" + std::to_string(id)+".log");
 	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
 	//int q_depth = 64, count = 0;
@@ -459,6 +462,7 @@ int main(int argc, char** argv)
 	int status;
 	int fd;
 	int i;
+	int threads_per_core;
 	// int srcPort = 0;
 	int io_depth = 1;
 	stop_count = 0;
@@ -572,6 +576,7 @@ int main(int argc, char** argv)
 	// ibuf[0] = ibuf[1] = length;
 	// seed_buffer(&ibuf[2], sizeof32(buffer) - 2*sizeof32(int), seed);
 	tempArg = nextArg;
+	threads_per_core = count / 2;
 	for(i = 0; i < count; i++) {
 		nextArg = tempArg;
 		// memset(&addr_in, 0, sizeof(addr_in));
@@ -592,7 +597,7 @@ int main(int argc, char** argv)
 				if(pin) {
 					cpu_set_t cpuset;
 					CPU_ZERO(&cpuset);
-					CPU_SET(cpu_list[(i) % 2], &cpuset);
+					CPU_SET(cpu_list[i / threads_per_core], &cpuset);
 					pthread_setaffinity_np(workers[workers.size() - 1].native_handle(), sizeof(cpu_set_t), &cpuset);
 				}	
 				//workers.push_back(std::thread(test_ndping_recv, fd, dest, srcPort - 10000));
