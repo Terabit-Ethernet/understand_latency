@@ -6,6 +6,54 @@
 
 ## Running experiments
 
+#### Single core:
+```
+./run_mc_all_params.sh 
+```
+
+#### Multiple cores:
+
+```
+./run_mc_all_params_multi_core.sh 
+```
+
+#### netdriver_multithread.cc and pingpong_server.cc are needed to change two places:
+1. Whether or not using round-robin scheduler:
+```
+//      struct sched_param param;
+//      param.sched_priority = 99;
+//      sched_setscheduler(pid, SCHED_RR, &param);
+```
+2. Whether or not using single core or multiple cores:
+
+  Single core:
+  ```
+  threads_per_core = count / 2;
+  ```
+  Multiple cores:
+  ```
+  threads_per_core = count / 16;
+  ```
+#### whether to track rx_sched only :
+
+In `linux-both-8c-compute.sh` (single core) or `linux-both-8c-compute-hd.sh `(multiple cores):
+
+1. only track rx_sched latency:
+```
+sudo sysctl -w net.core.latency_breakdown_on=1
+sudo sysctl -w net.core.latency_rx_sched_lat_only=1
+```
+
+2. track all latency:
+```
+sudo sysctl -w net.core.latency_breakdown_on=1
+sudo sysctl -w net.core.latency_rx_sched_lat_only=0
+```
+
+
+
+
+### Old scripts:
   ```
   sudo ./run_mc_all_params.sh 
   ```
