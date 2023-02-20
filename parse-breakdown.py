@@ -29,6 +29,7 @@ for line in lines:
     if m is not None:
         timestamps = list(map(int, m.groups()))
         if len(timestamps) == 23:
+            # port = timestamps[0]
             port = 0
             rx_hw = timestamps[2]
             rx_alloc = timestamps[3]
@@ -54,7 +55,8 @@ for line in lines:
 
             if port not in samples:
                 samples[port] = []
-
+            if rx_hw == 0:
+                continue
             samples[port].append({
                 'rx_hw': rx_hw,
                 'rx_alloc': rx_alloc,
@@ -78,7 +80,6 @@ for line in lines:
                 'tx_xmit': tx_xmit,
                 'tx_finish': tx_finish
             })
-
 # Calculate latencies
 latencies = {}
 for port, ss in samples.items():
@@ -103,7 +104,6 @@ for port, ss in samples.items():
             #'full': ts['tx_finish'] - ts['rx_irq'],
             'full': ts['tx_finish'] - ts['rx_hw'],
         })
-
 for port in latencies.keys():
    latencies[port].sort(key = lambda x: x['full'])
 # Average and tail atencies
@@ -139,10 +139,12 @@ for port, ts in tails.items():
     tail[port] = {}
     for k, v in ts.items():
         # print (port, len(v), k, round(0.99 * len(v)) - 1)
+        # v.sort()
         tail[port][k] = (v)[round(0.99 * len(v)) - 1]
 for port, ts in tails.items():
     tail999[port] = {}
     for k, v in ts.items():
+        # v.sort()
         tail999[port][k] = (v)[round(0.999 * len(v)) - 1]
 # Print latency breakdown
 categories = ['rx_irq', 'rx_napi' , 'rx_ip', 'rx_tcp', 'rx_sched', 'rx_data_copy', 'app', 'tx_data_copy', 'tx_tcp', 'tx_ip', 'tx_queue', 'tx_xmit', 'full']

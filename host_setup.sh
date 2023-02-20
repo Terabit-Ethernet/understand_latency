@@ -24,7 +24,7 @@ sudo hwstamp_ctl -i $INTF -r 1
 #echo HRTICK | sudo tee /sys/kernel/debug/sched_features
 #echo 100000 | sudo tee /proc/sys/kernel/sched_latency_ns
 #echo 100000 | sudo tee /proc/sys/kernel/sched_min_granularity_ns
-sudo phc2sys -s CLOCK_REALTIME -c $INTF -O 0 &
+# sudo phc2sys -s CLOCK_REALTIME -c $INTF -O 0 &
 
 # enable hugepage 
 sudo mount -t hugetlbfs nodev /dev/hugepages

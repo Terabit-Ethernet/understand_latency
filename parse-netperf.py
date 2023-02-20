@@ -139,6 +139,36 @@ def netfilter_output():
                 server_dict[i].append(int(params[i + start_index]))
     return client_dict, server_dict
 
+def netfilter_output_2():
+    client_dict = {}
+    server_dict = {}
+    f = os.path.join(DIR, "client_netfilter.log")
+    with open(f, "r") as file:
+        lines = file.readlines()
+        start_index = 7
+        i = 0
+        while i < len(lines):
+            params_thread_id = lines[i].split()[start_index:]
+            count_array = lines[i + 1].split()[start_index:]
+
+            for k in range(len(params_thread_id)):
+                client_dict[int(params_thread_id[k])] = int(count_array[k]);
+            i += 2
+
+    f = os.path.join(DIR, "server_netfilter.log")
+    with open(f, "r") as file:
+        lines = file.readlines()
+        start_index = 7
+        i = 0
+        while i < len(lines):
+            params_thread_id = lines[i].split()[start_index:]
+            count_array = lines[i + 1].split()[start_index:]
+
+            for k in range(len(params_thread_id)):
+                server_dict[int(params_thread_id[k])] = int(count_array[k]);
+            i += 2
+    return client_dict, server_dict
+
 def get_e2e_netfilter(thread_dict, client_dict, server_dict):
     e2e_dict = {}
     client_e2e_dict = {}
@@ -222,7 +252,9 @@ with open(f, "r") as file:
 
 # client_netperf_dict, server_netperf_dict = netfilter_output()
 # e2e_netfilter_dict = get_e2e_netfilter(thread_dict, client_netperf_dict, server_netperf_dict)
-print ('''port, client_core, server_core, client_pid, server_pid, thpt, latency, total_netfilter_pkt''')
+
+# client_netfilter2_dict, server_netfilter2_dict = netfilter_output_2()
+# print ('''port, client_core, server_core, client_pid, server_pid, thpt, latency, total_netfilter_pkt''')
 for i in range(0, N ):
     f = os.path.join(DIR, "netperf-{}.log".format(i))
     lines = []
@@ -253,10 +285,11 @@ for i in range(0, N ):
             t.latency = latency
             thread_dict[port] = t
 
-for key in sorted(thread_dict.keys()):
-    t = thread_dict[key]
+# for key in sorted(thread_dict.keys()):
+#     t = thread_dict[key]
     # total_netfilter_pkt = sum(e2e_netfilter_dict[key])
-    total_netfilter_pkt = 0
+    # total_netfilter_pkt = client_netfilter2_dict[t.client_pid] + server_netfilter2_dict[t.server_pid]
+    # total_netfilter_pkt = 0
     # f = os.path.join("results/our_mc_64_16_1/", "linux_latency_breakdown_c")
     # with open(f, "r") as file:
     #     lines = file.readlines()
@@ -308,8 +341,8 @@ for key in sorted(thread_dict.keys()):
     #     client_irq, client_rx_sched, client_latency, client_irq_999, client_rx_sched_999, client_latency_999,
     #     server_irq, server_rx_sched, server_latency, server_irq_999, server_rx_sched_999, server_latency_999,
     #     client_interrupt, server_interrupt, client_interrupt + server_interrupt))
-    print ('''{}, {}, {}, {}, {}, {}, {}, {}'''
-    .format(t.client_port, t.client_core, t.server_core, t.client_pid, t.server_pid, t.thpt, t.latency, total_netfilter_pkt))
+    # print ('''{}, {}, {}, {}, {}, {}, {}, {}'''
+    # .format(t.client_port, t.client_core, t.server_core, t.client_pid, t.server_pid, t.thpt, t.latency, total_netfilter_pkt))
 results.sort()
 # Print the netperf latencies
 categories = ['m_lat', 'p99_lat', 'p999_lat']

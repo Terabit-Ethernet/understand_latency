@@ -30,6 +30,7 @@ for line in lines:
         timestamps = list(map(int, m.groups()))
         if len(timestamps) == 23:
             port = 0
+            # port = timestamps[1]
             rx_hw = timestamps[2]
             rx_alloc = timestamps[3]
             rx_irq = timestamps[4]
@@ -78,7 +79,7 @@ for line in lines:
                 'tx_xmit': tx_xmit,
                 'tx_finish': tx_finish
             })
-            # if rx_ip - rx_gro > 40000:
+            # if rx_data_copy - rx_ready > 800000:
             #     sys.stderr.write(line + "\n")
 
 # Calculate latencies
@@ -100,7 +101,7 @@ for port, ss in samples.items():
             'rx_sched': ts['rx_data_copy'] - ts['rx_ready'],
             'rx_data_copy': ts['rx_return'] - ts['rx_data_copy'],
             'app': ts['tx_write'] - ts['rx_return'],
-            'tx_data_copy': ts['tx_tcp'] - ts['tx_data_copy'],
+            'tx_data_copy': ts['tx_tcp'] - ts['tx_write'],
             'tx_tcp': ts['tx_ip'] - ts['tx_tcp'],
             'tx_ip': ts['tx_queue'] - ts['tx_ip'],
             'tx_queue': ts['tx_xmit'] - ts['tx_queue'],
@@ -141,10 +142,12 @@ for port, ls in latencies.items():
 for port, ts in tails.items():
     tail[port] = {}
     for k, v in ts.items():
+        # v.sort()
         tail[port][k] = (v)[round(0.99 * len(v)) - 1]
 for port, ts in tails.items():
     tail999[port] = {}
     for k, v in ts.items():
+       # v.sort()
         tail999[port][k] = (v)[round(0.999 * len(v)) - 1]
 
 # Print latency breakdown

@@ -19,6 +19,7 @@ DPORT=5001
 # client-side
 sudo trace-cmd clear
 sudo sysctl -w net.core.latency_breakdown_on=1
+sudo sysctl -w net.core.latency_rx_sched_lat_only=1
 sudo sysctl -w net.core.latency_breakdown_nrfs=0
 echo 24000000 | sudo tee /proc/sys/kernel/sched_latency_ns
 echo 3000000 | sudo tee /proc/sys/kernel/sched_min_granularity_ns
@@ -32,6 +33,7 @@ sudo sysctl -w net.core.latency_breakdown_log=$LOG
 # server-side
 ssh jaehyun\@128.84.155.146 -t 'sudo trace-cmd clear'
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_on=1'
+ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_rx_sched_lat_only=1'
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_nrfs=0'
 ssh jaehyun\@128.84.155.146 -t 'echo 24000000 | sudo tee /proc/sys/kernel/sched_latency_ns'
 ssh jaehyun\@128.84.155.146 -t 'echo 3000000 | sudo tee /proc/sys/kernel/sched_min_granularity_ns'
@@ -119,12 +121,14 @@ ssh jaehyun\@128.84.155.146 -t 'sudo rm -rf /home/qizhe/latency/temp/compute*.lo
 PIDS2="$!"
 # client-side
 sudo sysctl -w net.core.latency_breakdown_on=0
+sudo sysctl -w net.core.latency_rx_sched_lat_only=0
 sudo sysctl -w net.core.latency_breakdown_nrfs=0
 sudo cat /sys/kernel/debug/tracing/trace &> $DIR/latencies-$N.log
 sudo trace-cmd clear
 
 # server-side
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_on=0'
+ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_rx_sched_lat_only=0'
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_nrfs=0'
 ssh jaehyun\@128.84.155.146 -t 'sudo cat /sys/kernel/debug/tracing/trace' > $DIR/latencies-$N-server.log
 ssh jaehyun\@128.84.155.146 -t 'sudo trace-cmd clear'

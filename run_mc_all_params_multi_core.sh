@@ -1,5 +1,5 @@
 iodepth=(1)
-num_apps=(32)
+num_apps=(256)
 flowsize=(64)
 dim=(1)
 pin=(1)
@@ -20,7 +20,7 @@ do
                     do
                             for k in "${num_apps[@]}"
                             do
-                                ./"$sys"-both-8c-compute.sh $k temp/ $f $i $d $p $t $s
+                                ./"$sys"-both-8c-compute-hd.sh $k temp/ $f $i $d $p $t $s
                                 echo "./"$sys"-both-8c-compute.sh $k temp/ $f $i $d $p $t $s"
                                 mkdir temp/"$sys"_mc_"$f"_"$k"_"$i"
                                 mv temp/*.log temp/"$sys"_mc_"$f"_"$k"_"$i"
@@ -38,11 +38,11 @@ do
                         do
                             mkdir results/our_mc_"$f"_"$k"_"$i"
                             ./parse-netperf.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k > results/our_mc_"$f"_"$k"_"$i"/"$sys"_latency &
-                            # PIDS="$PIDS $!"
-                            # ./parse-breakdown-server.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k > results/our_mc_"$f"_"$k"_"$i"/"$sys"_latency_breakdown_s &
-                            # ./parse-breakdown.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k >  results/our_mc_"$f"_"$k"_"$i"/"$sys"_latency_breakdown_c &
+                            PIDS="$PIDS $!"
                             ./parse-breakdown-rx_sched_c.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k > results/our_mc_"$f"_"$k"_"$i"/"$sys"_latency_breakdown_rx_sched_c &
                             ./parse-breakdown-rx_sched_s.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k > results/our_mc_"$f"_"$k"_"$i"/"$sys"_latency_breakdown_rx_sched_s &
+                            # ./parse-breakdown-server.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k > results/our_mc_"$f"_"$k"_"$i"/"$sys"_latency_breakdown_s &
+                            # ./parse-breakdown.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k >  results/our_mc_"$f"_"$k"_"$i"/"$sys"_latency_breakdown_c &
                             # ./parse-cpu.py temp/our_mc_"$f"_"$k"_"$i" $k $j > results/our_mc_"$f"_"$k"_"$i"/"$sys"_cpu &
                             # ./parse-compute.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" 2 > results/our_mc_"$f"_"$k"_"$i"/"$sys"_compute &
                         done
@@ -52,7 +52,8 @@ do
                 wait $PIDS
                 mkdir results/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"
                 cp -r results/our_mc* results/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"
-                rm -rf results/our_mc*
+                # rm -rf results/our_mc* temp/*
+                sleep 5
                 PIDS=""
             done
         done
