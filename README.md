@@ -62,7 +62,7 @@ sudo sysctl -w net.core.latency_rx_sched_lat_only=0
 ```
 
 
-### Old scripts:
+### Old scripts (Ignore for now)
   ```
   sudo ./run_mc_all_params.sh 
   ```
