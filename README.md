@@ -12,6 +12,7 @@
   ```
   ./target_setup.sh
   ```
+  You might need to change IP address in the env.sh
 
 ## Running experiments
 
