@@ -21,6 +21,7 @@
 //
 // host:port gives the location of a server to invoke
 // Each op specifies a particular test to perform
+#include <atomic>
 #include <cassert>
 #include <ctime>
 #include<chrono>
@@ -76,6 +77,63 @@ int limit = 1024;
 // bool queue_available() {return time_q.size() < (long unsigned int)limit;}
 volatile int stop_count;
 
+/* maximum latency will be 10 ms */
+#define MAX_HIST_VALUE 10000000 
+/* Count in us-scale */
+#define NUM_BINS 10000000 
+
+std::vector<std::atomic<long long>> time_hist(MAX_HIST_VALUE);
+
+
+void add_to_timehist(double latency) {
+	time_hist[int(latency * NUM_BINS / MAX_HIST_VALUE)].fetch_add(1, std::memory_order_relaxed); 
+}
+
+double get_mean_timehist() {
+    double mean = 0.0;
+	double count = 0;
+    for (int i = 0; i < NUM_BINS; i++) {
+        mean += static_cast<double>(time_hist[i].load()) * i;
+		count += static_cast<double>(time_hist[i].load());
+    }
+    mean /= count;
+	return mean;
+}
+
+// Function to calculate the time difference in microseconds between two timespec structures
+long long diff_us(const timespec& start, const timespec& end) {
+    long long diffSecs = end.tv_sec - start.tv_sec;
+    long long diffNanos = end.tv_nsec - start.tv_nsec;
+
+    // Adjust for negative nanosecond difference
+    if (diffNanos < 0) {
+        diffSecs--;
+        diffNanos += 1000000000; // 1 billion nanoseconds in a second
+    }
+
+    // Convert the difference to microseconds
+    long long diffMicros = diffSecs * 1000000LL + diffNanos / 1000LL;
+
+    return diffMicros;
+}
+// Function to estimate the percentile from the histogram
+double estimate_percentile(double percentile) {
+    double total = 0;
+	double target_value = 0;
+    for (int i = 0; i < NUM_BINS; i++) {
+        total += time_hist[i].load();
+    }
+	target_value = percentile * total;
+	total = 0;
+    for (int i = 0; i < NUM_BINS; i++) {
+        total += time_hist[i].load();
+        if (total >= target_value) {
+            return i;
+        }
+    }
+    return -1; // Percentile estimation failed
+}
+
 /**
  * close_fd() - Helper method for "close" test: sleeps a while, then closes
  * an fd
@@ -112,7 +170,7 @@ void print_help(const char *name)
 void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size)
 {
 
-	std::queue<uint64_t> time_q;
+	std::queue<struct timespec> time_q;
 	char *buffer = (char*)malloc(1000000);
 	int fd;
 	unsigned int cpu, node;
@@ -121,17 +179,18 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	int flag = 0;
 	std::vector<double> latency;
 	uint64_t write_len = 0;
-	uint64_t start_time = rdtsc();
-	uint64_t end = rdtsc();
+	struct timespec start_time, end_time, begin_time;
 	uint64_t sent_bytes = 0;
 	uint64_t max_size = 10000000;
 	std::ofstream lfile, tfile;
 	pid_t pid = syscall(__NR_gettid);
 	struct sockaddr_in client;
 	socklen_t clientsz = sizeof(client);
-//	struct sched_param param;
-//   	param.sched_priority = 99;
-//    	sched_setscheduler(pid, SCHED_RR, &param);
+	int total = 0;
+	int burst = io_depth;
+//  	struct sched_param param;
+// 	param.sched_priority = 99;
+//	sched_setscheduler(pid, SCHED_RR, &param);
 	lfile.open("temp/netperf-" + std::to_string(id)+".log");
 	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
 	//int q_depth = 64, count = 0;
@@ -145,11 +204,13 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	getsockname(fd, (struct sockaddr *) &client, &clientsz);
 	getcpu(&cpu, &node);
 	printf("cpu: %d pid: %d client port: %d\n", cpu, pid, ntohs(client.sin_port));
-	int total = 0;
-	int burst = io_depth;
+
+	clock_gettime(CLOCK_REALTIME, &begin_time);
+
 	while(burst > 0) {
 		total = 0;
-		time_q.push(rdtsc());
+		clock_gettime(CLOCK_REALTIME, &start_time);
+		time_q.push(start_time);
 		while(total < flow_size) {
 			// if (burst == 1)
 			// 	flag = MSG_EOR;
@@ -172,7 +233,6 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 		burst--;
 	}
 	while(1) {
-		end = rdtsc();
 		/* receive one response */
 		total = 0;
 		while(total < flow_size) {
@@ -186,15 +246,17 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 				total += result;
 			}
 			if(total == flow_size) {
-				uint64_t start = time_q.front();
-				end = rdtsc();
-				latency.push_back(to_seconds(end - start));
+				start_time = time_q.front();
+				clock_gettime(CLOCK_REALTIME, &end_time);
+				add_to_timehist(diff_us(start_time, end_time));
+				// latency.push_back(to_seconds(end - start));
 				time_q.pop();
 			}
 		}
 		/* send out one request */
 		total = 0;
-		time_q.push(rdtsc());
+		clock_gettime(CLOCK_REALTIME, &start_time);
+		time_q.push(start_time);
 		total = 0;
 		while(total < flow_size) {
 			int result = send(fd, buffer + total, flow_size - total, flag);
@@ -214,12 +276,12 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 			break;
 	
 	}
-	tfile <<   pid << " " << ntohs(client.sin_port) << " " << sent_bytes  / to_seconds(end - start_time) / flow_size  << std::endl;
+	tfile <<   pid << " " << ntohs(client.sin_port) << " " << sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
 	max_size = (latency.size() > max_size) ? max_size : latency.size();
-	for(uint32_t i = 0; i < max_size; i++) {
-		lfile << "finish time: " << latency[i] << "\n"; 
-		// std::cout << "finish time: " << latency[i] << "\n"; 
-	}
+	// for(uint32_t i = 0; i < max_size; i++) {
+	// 	lfile << "finish time: " << latency[i] << "\n"; 
+	// 	// std::cout << "finish time: " << latency[i] << "\n"; 
+	// }
 	lfile.close();
 	tfile.close();
 	close(fd);
@@ -450,6 +512,7 @@ int main(int argc, char** argv)
 	struct addrinfo *matching_addresses;
 	struct sockaddr *dest;
 	struct addrinfo hints;
+	std::ofstream lfile;
 	char *host, *port_name;
  	std::vector<std::thread> workers;
 	int cpu_list[16] = {0, 32, 4, 36, 8, 40, 12, 44, 16, 48, 20, 52, 24, 56, 28, 60};
@@ -466,6 +529,10 @@ int main(int argc, char** argv)
 	// int srcPort = 0;
 	int io_depth = 1;
 	stop_count = 0;
+	lfile.open("temp/latency.log");
+    for (i = 0; i < MAX_HIST_VALUE; ++i) {
+        time_hist[i].store(0);
+    }
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
 		exit(0);
@@ -621,6 +688,8 @@ int main(int argc, char** argv)
 	for(unsigned i = 0; i < workers.size(); i++) {
 		workers[i].join();
 	}
+	lfile << get_mean_timehist() << " " << estimate_percentile(0.99) << " " << estimate_percentile(0.999)  << std::endl; 
+	lfile.close();
 	free(buffer);
 	exit(0);
 }
