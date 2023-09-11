@@ -1,8 +1,18 @@
-# latency
+# Understanding Host Network Stack Latency
 
 ## Setup
-1. Host side: `./host_setup.sh`; target side: "./target_setup.sh".
-2. Check the hw time and os time diff: `sudo phc_ctl ens2f1 cmp`.
+1. Install the Linux kernel in this [repo](https://github.com/Terabit-Ethernet/linux-latency).
+2. Run the setup script in both servers. 
+  host side: 
+  ```
+  `./host_setup.sh
+  ```
+  
+  target side: 
+  ```
+  ./target_setup.sh
+  ```
+  You might need to change HOST and TARGET IP address in the `env.sh`
 
 ## Running experiments
 
@@ -18,6 +28,7 @@
 ```
 
 #### netdriver_multithread.cc and pingpong_server.cc are needed to change two places:
+
 1. Whether or not using round-robin scheduler:
 ```
 //      struct sched_param param;
@@ -34,6 +45,7 @@
   ```
   threads_per_core = count / 16;
   ```
+  
 #### whether to track rx_sched only :
 
 In `linux-both-8c-compute.sh` (single core) or `linux-both-8c-compute-hd.sh `(multiple cores):
@@ -51,9 +63,7 @@ sudo sysctl -w net.core.latency_rx_sched_lat_only=0
 ```
 
 
-
-
-### Old scripts:
+### Old scripts (Ignore for now)
   ```
   sudo ./run_mc_all_params.sh 
   ```
