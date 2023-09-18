@@ -85,16 +85,16 @@ volatile int stop_count;
 std::vector<std::atomic<long long>> time_hist(MAX_HIST_VALUE);
 
 
-void add_to_timehist(double latency) {
-	time_hist[int(latency * NUM_BINS / MAX_HIST_VALUE)].fetch_add(1, std::memory_order_relaxed); 
+void add_to_timehist(std::vector<std::atomic<long long>> &local_time_hist, double latency) {
+	local_time_hist[int(latency * NUM_BINS / MAX_HIST_VALUE)].fetch_add(1, std::memory_order_relaxed); 
 }
 
-double get_mean_timehist() {
+double get_mean_timehist(std::vector<std::atomic<long long>> &local_time_hist) {
     double mean = 0.0;
 	double count = 0;
     for (int i = 0; i < NUM_BINS; i++) {
-        mean += static_cast<double>(time_hist[i].load()) * i;
-		count += static_cast<double>(time_hist[i].load());
+        mean += static_cast<double>(local_time_hist[i].load()) * i;
+		count += static_cast<double>(local_time_hist[i].load());
     }
     mean /= count;
 	return mean;
@@ -117,16 +117,16 @@ long long diff_us(const timespec& start, const timespec& end) {
     return diffMicros;
 }
 // Function to estimate the percentile from the histogram
-double estimate_percentile(double percentile) {
+double estimate_percentile(std::vector<std::atomic<long long>> &local_time_hist, double percentile) {
     double total = 0;
 	double target_value = 0;
     for (int i = 0; i < NUM_BINS; i++) {
-        total += time_hist[i].load();
+        total += local_time_hist[i].load();
     }
 	target_value = percentile * total;
 	total = 0;
     for (int i = 0; i < NUM_BINS; i++) {
-        total += time_hist[i].load();
+        total += local_time_hist[i].load();
         if (total >= target_value) {
             return i;
         }
@@ -188,6 +188,7 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	socklen_t clientsz = sizeof(client);
 	int total = 0;
 	int burst = io_depth;
+	std::vector<std::atomic<long long>> local_time_hist(MAX_HIST_VALUE);
 //  	struct sched_param param;
 // 	param.sched_priority = 99;
 //	sched_setscheduler(pid, SCHED_RR, &param);
@@ -248,7 +249,8 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 			if(total == flow_size) {
 				start_time = time_q.front();
 				clock_gettime(CLOCK_REALTIME, &end_time);
-				add_to_timehist(diff_us(start_time, end_time));
+				add_to_timehist(time_hist, diff_us(start_time, end_time));
+				add_to_timehist(local_time_hist, diff_us(start_time, end_time));
 				// latency.push_back(to_seconds(end - start));
 				time_q.pop();
 			}
@@ -276,7 +278,9 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 			break;
 	
 	}
-	tfile <<   pid << " " << ntohs(client.sin_port) << " " << sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
+	tfile <<   pid << " " << ntohs(client.sin_port) << " " 
+	<< get_mean_timehist(local_time_hist) << " " << estimate_percentile(local_time_hist, 0.99) << " " << estimate_percentile(local_time_hist, 0.999) << " "
+		<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
 	max_size = (latency.size() > max_size) ? max_size : latency.size();
 	// for(uint32_t i = 0; i < max_size; i++) {
 	// 	lfile << "finish time: " << latency[i] << "\n"; 
@@ -688,7 +692,7 @@ int main(int argc, char** argv)
 	for(unsigned i = 0; i < workers.size(); i++) {
 		workers[i].join();
 	}
-	lfile << get_mean_timehist() << " " << estimate_percentile(0.99) << " " << estimate_percentile(0.999)  << std::endl; 
+	lfile << get_mean_timehist(time_hist) << " " << estimate_percentile(time_hist, 0.99) << " " << estimate_percentile(time_hist, 0.999)  << std::endl; 
 	lfile.close();
 	free(buffer);
 	exit(0);
