@@ -277,57 +277,57 @@ for i in range(0, N ):
         for line in lines:
             params = line.split()
             port = int(params[1])
-            thpt = float(params[2])
-            latency = np.percentile(temp_result, 99.9)
+            thpt = float(params[5])
+            # latency = np.percentile(temp_result, 99.9)
             total_thpt += thpt
             t = thread_dict[port]
             t.thpt = thpt
-            t.latency = latency
+            # t.latency = latency
             thread_dict[port] = t
 
 # for key in sorted(thread_dict.keys()):
 #     t = thread_dict[key]
-    # total_netfilter_pkt = sum(e2e_netfilter_dict[key])
-    # total_netfilter_pkt = client_netfilter2_dict[t.client_pid] + server_netfilter2_dict[t.server_pid]
-    # total_netfilter_pkt = 0
-    # f = os.path.join("results/our_mc_64_16_1/", "linux_latency_breakdown_c")
-    # with open(f, "r") as file:
-    #     lines = file.readlines()
-    #     times = 0
-    #     for line in lines:
-    #         params = line.split()
-    #         if "port" in line:
-    #             continue
-    #         port = int(params[0])
-    #         if port == t.client_port:
-    #             if times == 0:
-    #                 client_irq = float(params[1])
-    #                 client_rx_sched = float(params[5]) 
-    #                 client_latency = float(params[13])
-    #             if times == 2:
-    #                 client_irq_999 = float(params[1])
-    #                 client_rx_sched_999 = float(params[5]) 
-    #                 client_latency_999 = float(params[13])
-    #             times += 1
-    # f = os.path.join("results/our_mc_64_16_1/", "linux_latency_breakdown_s")
-    # with open(f, "r") as file:
-    #     lines = file.readlines()
-    #     times = 0
-    #     for line in lines:
-    #         params = line.split()
-    #         if "port" in line:
-    #             continue
-    #         port = int(params[0])
-    #         if port == t.client_port:
-    #             if times == 0:
-    #                 server_irq = float(params[1])
-    #                 server_rx_sched = float(params[5]) 
-    #                 server_latency = float(params[13])
-    #             if times == 2:
-    #                 server_irq_999 = float(params[1])
-    #                 server_rx_sched_999 = float(params[5]) 
-    #                 server_latency_999 = float(params[13])
-    #             times += 1
+#     # total_netfilter_pkt = sum(e2e_netfilter_dict[key])
+#     # total_netfilter_pkt = client_netfilter2_dict[t.client_pid] + server_netfilter2_dict[t.server_pid]
+#     total_netfilter_pkt = 0
+#     f = os.path.join("results/our_mc_64_32_1_0/", "linux_latency_breakdown_c")
+#     with open(f, "r") as file:
+#         lines = file.readlines()
+#         times = 0
+#         for line in lines:
+#             params = line.split()
+#             if "port" in line:
+#                 continue
+#             port = int(params[0])
+#             if port == t.client_port:
+#                 if times == 0:
+#                     client_irq = float(params[1])
+#                     client_rx_sched = float(params[5]) 
+#                     client_latency = float(params[13])
+#                 if times == 2:
+#                     client_irq_999 = float(params[1])
+#                     client_rx_sched_999 = float(params[5]) 
+#                     client_latency_999 = float(params[13])
+#                 times += 1
+#     f = os.path.join("results/our_mc_64_32_1_0/", "linux_latency_breakdown_s")
+#     with open(f, "r") as file:
+#         lines = file.readlines()
+#         times = 0
+#         for line in lines:
+#             params = line.split()
+#             if "port" in line:
+#                 continue
+#             port = int(params[0])
+#             if port == t.client_port:
+#                 if times == 0:
+#                     server_irq = float(params[1])
+#                     server_rx_sched = float(params[5]) 
+#                     server_latency = float(params[13])
+#                 if times == 2:
+#                     server_irq_999 = float(params[1])
+#                     server_rx_sched_999 = float(params[5]) 
+#                     server_latency_999 = float(params[13])
+#                 times += 1
     # if t.client_pid in client_sched_dict:
     #     client_interrupt = client_sched_dict[t.client_pid]
     # else:
@@ -348,5 +348,5 @@ results.sort()
 categories = ['m_lat', 'p99_lat', 'p999_lat']
 print("{}\t{}\t{}".format('m_lat','p99_lat',  'p999_lat', "thpt"))
 
-print("{}\t{}\t{}".format(sum(results) / len(results), np.percentile(results, 99),  np.percentile(results, 99.9)), total_thpt)
+print("{}\t".format(total_thpt))
 
