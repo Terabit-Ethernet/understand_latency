@@ -127,6 +127,8 @@ void aggre_thread(struct Agg_Stats *stats) {
 void nd_pingpong()
 {
 	// int flag = 1;
+	bool is_first = false;
+	struct timespec first_time;
 	int fd = 0;
 	Conn_Data data;
 	int optval = 6;
@@ -137,11 +139,11 @@ void nd_pingpong()
 	// int iodepth;
 	int flow_size;
 	unsigned int cpu, node;
-    std::unique_lock lk(m);
-    cv.wait(lk, []{return !socklist.empty();});
+    	std::unique_lock lk(m);
+    	cv.wait(lk, []{return !socklist.empty();});
 	data = socklist.front();
 	socklist.pop_front();
-    lk.unlock();
+    	lk.unlock();
 	fd = data.fd;
 	source = data.source;
 	// iodepth = data.iodepth;
@@ -159,7 +161,7 @@ void nd_pingpong()
 	// int which = PRIO_PROCESS;
 	pid_t pid = syscall(__NR_gettid);
 //	struct sched_param param;
-//  	param.sched_priority = 99;
+//	param.sched_priority = 99;
 //    	sched_setscheduler(pid, SCHED_RR, &param);
 	//ret = setpriority(which, pid, -20);
 	//std::cout << "ret "<< ret << std::endl;
@@ -171,8 +173,8 @@ void nd_pingpong()
 	if (getpeername(fd, (struct sockaddr *)&sin, &len) == -1)
 	    perror("getsockname");
 	getcpu(&cpu, &node);
-	printf("core: %d pid: %d port number: %d\n",cpu,  pid, ntohs(sin.sin_port));
-	fflush (stdout);
+//	printf("core: %d pid: %d port number: %d\n",cpu,  pid, ntohs(sin.sin_port));
+//	fflush (stdout);
 	// start_cycle = rdtsc();
 	setsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, unsigned(sizeof(optval)));   
 	getsockopt(fd, SOL_SOCKET, SO_PRIORITY, &optval, &optlen);
@@ -183,6 +185,12 @@ void nd_pingpong()
 		int rpc_length = flow_size;
 		// times--;
 		// int burst = iodepth;
+		if(is_first == false) {
+			is_first = true;
+			clock_gettime(CLOCK_MONOTONIC, &first_time);
+			printf("%lld.%.9ld core: %d pid: %d port number: %d\n", (long long)first_time.tv_sec, first_time.tv_nsec, cpu,  pid, ntohs(sin.sin_port));
+			fflush (stdout);
+		}
 		while(1) {
 			int result = read(fd, buffer + copied,
 				rpc_length);
