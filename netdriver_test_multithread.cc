@@ -188,6 +188,8 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	socklen_t clientsz = sizeof(client);
 	int total = 0;
 	int burst = io_depth;
+	bool is_first = false;
+	struct timespec first_time;
 	std::vector<std::atomic<long long>> local_time_hist(MAX_HIST_VALUE);
 //  	struct sched_param param;
 // 	param.sched_priority = 99;
@@ -204,7 +206,6 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	}
 	getsockname(fd, (struct sockaddr *) &client, &clientsz);
 	getcpu(&cpu, &node);
-	printf("cpu: %d pid: %d client port: %d\n", cpu, pid, ntohs(client.sin_port));
 
 	clock_gettime(CLOCK_REALTIME, &begin_time);
 
@@ -217,7 +218,11 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 			// 	flag = MSG_EOR;
 			// else
 			// 	flag = MSG_MORE;
-		//	printf("send time:%f\n", to_seconds(rdtsc()));
+			if(is_first == false) {
+				clock_gettime(CLOCK_MONOTONIC, &first_time);
+				printf("%lld.%.9ld cpu: %d pid: %d client port: %d\n", (long long)first_time.tv_sec, first_time.tv_nsec, cpu, pid, ntohs(client.sin_port));
+				is_first = true;
+			}
 			int result = send(fd, buffer + total, flow_size - total, flag);
 			if( result < 0 ) {
 				if(errno == EMSGSIZE) {
