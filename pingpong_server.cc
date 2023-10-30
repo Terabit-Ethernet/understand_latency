@@ -118,36 +118,37 @@ void aggre_thread(struct Agg_Stats *stats) {
 	}
 }
 
+double diff_timespec(const struct timespec *time1, const struct timespec *time0) {
+  return (time1->tv_sec - time0->tv_sec)
+      + (time1->tv_nsec - time0->tv_nsec) / 1000000000.0;
+}
+
 /**
  * nd_pingpong() - Handles messages arriving on a given socket.
  * @fd:           File descriptor for the socket over which messages
  *                will arrive.
  * @client_addr:  Information about the client (for messages).
  */
-void nd_pingpong()
+void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 {
 	// int flag = 1;
 	bool is_first = false;
 	struct timespec first_time;
-	int fd = 0;
-	Conn_Data data;
+	// Conn_Data data;
 	int optval = 6;
 	unsigned optlen = 0;
-	char *buffer = (char*)malloc(2359104);
+	char buffer[9000];
 	int flag;
-	struct sockaddr_in source;
 	// int iodepth;
-	int flow_size;
 	unsigned int cpu, node;
-    	std::unique_lock lk(m);
-    	cv.wait(lk, []{return !socklist.empty();});
-	data = socklist.front();
-	socklist.pop_front();
-    	lk.unlock();
-	fd = data.fd;
-	source = data.source;
+    // std::unique_lock lk(m);
+    // cv.wait(lk, []{return !socklist.empty();});
+	// Conn_Data data;
+	// data = socklist.front();
+	// socklist.pop_front();
+    // lk.unlock();
 	// iodepth = data.iodepth;
-	flow_size = data.flow_size;
+	
     // cv.notify_one();
 
 	// int times = 10000;
@@ -185,12 +186,6 @@ void nd_pingpong()
 		int rpc_length = flow_size;
 		// times--;
 		// int burst = iodepth;
-		if(is_first == false) {
-			is_first = true;
-			clock_gettime(CLOCK_MONOTONIC, &first_time);
-			printf("%lld.%.9ld core: %d pid: %d port number: %d\n", (long long)first_time.tv_sec, first_time.tv_nsec, cpu,  pid, ntohs(sin.sin_port));
-			fflush (stdout);
-		}
 		while(1) {
 			int result = read(fd, buffer + copied,
 				rpc_length);
@@ -209,6 +204,12 @@ void nd_pingpong()
 			// if(burst == 0)
 			// 	break;
 			// return;
+		}
+		if(is_first == false) {
+				is_first = true;
+				clock_gettime(CLOCK_MONOTONIC, &first_time);
+				printf("%lld.%.9ld core: %d pid: %d port number: %d\n", (long long)first_time.tv_sec, first_time.tv_nsec, cpu,  pid, ntohs(sin.sin_port));
+				fflush (stdout);
 		}
 		copied = 0;
 		rpc_length = flow_size;
@@ -249,7 +250,7 @@ void nd_pingpong()
 		printf("Closing TCP socket from %s\n", print_address(&source));
 close:
 	close(fd);
-	free(buffer);
+	// free(buffer);
 }
 /**
  * homa_server() - Opens a Homa socket and handles all requests arriving on
@@ -468,6 +469,8 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
  	std::unique_lock<std::mutex> lk(m,  std::defer_lock);
 	int i = 0;
 	int threads_per_core = num_threads / 2;
+	int conns = 0;
+	bool not_created = true;
 	if (listen_fd == -1) {
 		printf("Couldn't open server socket: %s\n", strerror(errno));
 		exit(1);
@@ -479,16 +482,16 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 			strerror(errno));
 		exit(1);
 	}
-	for (i = 0; i < num_threads; i++) {
-		std::thread thread(nd_pingpong);
-		if(pin) {
-			cpu_set_t cpuset;
-			CPU_ZERO(&cpuset);
-			CPU_SET(cpu_list[i / threads_per_core], &cpuset);
-			pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
-		}
-	    thread.detach();
-	}
+	// for (i = 0; i < num_threads; i++) {
+	// 	std::thread thread(nd_pingpong);
+	// 	if(pin) {
+	// 		cpu_set_t cpuset;
+	// 		CPU_ZERO(&cpuset);
+	// 		CPU_SET(cpu_list[i / threads_per_core], &cpuset);
+	// 		pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
+	// 	}
+	//     thread.detach();
+	// }
 	struct sockaddr_in addr;
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
@@ -508,14 +511,31 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 		int stream = accept(listen_fd,
 				reinterpret_cast<sockaddr *>(&client_addr),
 				&addr_len);
-		lk.lock();
+		// lk.lock();
 		socklist.push_back(Conn_Data(stream, client_addr, iodepth, flow_size));
-		lk.unlock();
-		cv.notify_one();
+		// lk.unlock();
+		// cv.notify_one();
 		if (stream < 0) {
 			printf("Couldn't accept incoming connection: %s",
 				strerror(errno));
 			exit(1);
+		}
+		conns += 1;
+		if(not_created && conns == num_threads) {
+			for (i = 0; i < num_threads; i++) {
+				Conn_Data data;
+				data = socklist.front();
+				socklist.pop_front();
+				std::thread thread(nd_pingpong, data.fd, data.source, data.iodepth, data.flow_size);
+				if(pin) {
+					cpu_set_t cpuset;
+					CPU_ZERO(&cpuset);
+					CPU_SET(cpu_list[i / threads_per_core], &cpuset);
+					pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
+				}
+				thread.detach();
+			}
+			not_created = false;
 		}
 		
 		// std::thread thread(nd_pingpong, stream, client_addr, iodepth, flow_size);
@@ -539,7 +559,7 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 void nd_connection(int fd, struct sockaddr_in source)
 {
 	// int flag = 1;
-	char *buffer = (char*)malloc(2359104);
+	char buffer[9000];
 	// int cur_length = 0;
 	// bool streaming = false;
 	uint64_t count = 0;
@@ -560,7 +580,7 @@ void nd_connection(int fd, struct sockaddr_in source)
 	// printf("sizeof buffer:%ld\n", sizeof(buffer));
 	while (1) {
 		int result = read(fd, buffer,
-				2359104);
+				9000);
 		// setbuf(stdout, NULL);
 		// printf("result:%d\n", result);
 		
@@ -647,7 +667,7 @@ void nd_connection(int fd, struct sockaddr_in source)
 	if (verbose)
 		printf("Closing TCP socket from %s\n", print_address(&source));
 	close(fd);
-	free(buffer);
+	// free(buffer);
 }
 
 /**
