@@ -167,21 +167,26 @@ void print_help(const char *name)
 }
 
 
+double diff_timespec(const struct timespec *time1, const struct timespec *time0) {
+  return (time1->tv_sec - time0->tv_sec)
+      + (time1->tv_nsec - time0->tv_nsec) / 1000000000.0;
+}
+
 void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size)
 {
-
 	std::queue<struct timespec> time_q;
-	char *buffer = (char*)malloc(1000000);
+	char buffer[9000];
 	int fd;
 	unsigned int cpu, node;
 	// uint64_t flow_size = 10000000000000;
 	// int times = 100;
 	int flag = 0;
-	std::vector<double> latency;
+	// std::vector<double> latency;
 	uint64_t write_len = 0;
 	struct timespec start_time, end_time, begin_time;
 	uint64_t sent_bytes = 0;
-	uint64_t max_size = 10000000;
+	// uint64_t max_size = 10000000;
+
 	std::ofstream lfile, tfile;
 	pid_t pid = syscall(__NR_gettid);
 	struct sockaddr_in client;
@@ -190,12 +195,10 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	int burst = io_depth;
 	bool is_first = false;
 	struct timespec first_time;
-	std::vector<std::atomic<long long>> local_time_hist(MAX_HIST_VALUE);
+	// std::vector<std::atomic<long long>> local_time_hist(MAX_HIST_VALUE);
 //  	struct sched_param param;
 // 	param.sched_priority = 99;
 //	sched_setscheduler(pid, SCHED_RR, &param);
-	lfile.open("temp/netperf-" + std::to_string(id)+".log");
-	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
 	//int q_depth = 64, count = 0;
 	    // for (int i = 0; i < count * 100; i++) {
 		/* init burst io_depth packet */
@@ -208,7 +211,6 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	getcpu(&cpu, &node);
 
 	clock_gettime(CLOCK_REALTIME, &begin_time);
-
 	while(burst > 0) {
 		total = 0;
 		clock_gettime(CLOCK_REALTIME, &start_time);
@@ -255,7 +257,7 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 				start_time = time_q.front();
 				clock_gettime(CLOCK_REALTIME, &end_time);
 				add_to_timehist(time_hist, diff_us(start_time, end_time));
-				add_to_timehist(local_time_hist, diff_us(start_time, end_time));
+				// add_to_timehist(local_time_hist, diff_us(start_time, end_time));
 				// latency.push_back(to_seconds(end - start));
 				time_q.pop();
 			}
@@ -283,14 +285,19 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 			break;
 	
 	}
-	tfile <<   pid << " " << ntohs(client.sin_port) << " " 
-	<< get_mean_timehist(local_time_hist) << " " << estimate_percentile(local_time_hist, 0.99) << " " << estimate_percentile(local_time_hist, 0.999) << " "
+	lfile.open("temp/netperf-" + std::to_string(id)+".log");
+	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
+	tfile <<   pid << " " << ntohs(client.sin_port) << " "
 		<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
-	max_size = (latency.size() > max_size) ? max_size : latency.size();
+	// tfile <<   pid << " " << ntohs(client.sin_port) << " " 
+	// << get_mean_timehist(local_time_hist) << " " << estimate_percentile(local_time_hist, 0.99) << " " << estimate_percentile(local_time_hist, 0.999) << " "
+	// 	<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
+	// max_size = (latency.size() > max_size) ? max_size : latency.size();
 	// for(uint32_t i = 0; i < max_size; i++) {
 	// 	lfile << "finish time: " << latency[i] << "\n"; 
 	// 	// std::cout << "finish time: " << latency[i] << "\n"; 
 	// }
+
 	lfile.close();
 	tfile.close();
 	close(fd);
