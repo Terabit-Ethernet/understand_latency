@@ -77,15 +77,54 @@ int limit = 1024;
 // bool queue_available() {return time_q.size() < (long unsigned int)limit;}
 volatile int stop_count;
 
-/* maximum latency will be 10 ms */
-#define MAX_HIST_VALUE 10000000 
+/* maximum latency will be 100ms */
+#define MAX_HIST_VALUE 100000 
 /* Count in us-scale */
-#define NUM_BINS 10000000 
+#define NUM_BINS 100000 
 
 std::vector<std::atomic<long long>> time_hist(MAX_HIST_VALUE);
 
 
+void local_add_to_timehist(std::vector<long long> &local_time_hist, double latency) {
+	// printf("latency: %f\n", latency);
+	if(latency > MAX_HIST_VALUE)
+		latency = MAX_HIST_VALUE - 1;
+	local_time_hist[int(latency)] += 1; 
+}
+
+double local_get_mean_timehist(std::vector<long long> &local_time_hist) {
+    double mean = 0.0;
+	double count = 0;
+    for (int i = 0; i < NUM_BINS; i++) {
+        mean += static_cast<double>(local_time_hist[i]) * i;
+		count += static_cast<double>(local_time_hist[i]);
+    }
+    mean /= count;
+	return mean;
+}
+
+// Function to estimate the percentile from the histogram
+double local_estimate_percentile(std::vector<long long> &local_time_hist, double percentile) {
+    double total = 0;
+	double target_value = 0;
+    for (int i = 0; i < NUM_BINS; i++) {
+        total += local_time_hist[i];
+    }
+	target_value = percentile * total;
+	total = 0;
+    for (int i = 0; i < NUM_BINS; i++) {
+        total += local_time_hist[i];
+        if (total >= target_value) {
+            return i;
+        }
+    }
+    return -1; // Percentile estimation failed
+}
+
 void add_to_timehist(std::vector<std::atomic<long long>> &local_time_hist, double latency) {
+	// printf("latency: %f\n", latency);
+	if(latency > MAX_HIST_VALUE)
+		latency = MAX_HIST_VALUE;
 	local_time_hist[int(latency * NUM_BINS / MAX_HIST_VALUE)].fetch_add(1, std::memory_order_relaxed); 
 }
 
@@ -100,22 +139,6 @@ double get_mean_timehist(std::vector<std::atomic<long long>> &local_time_hist) {
 	return mean;
 }
 
-// Function to calculate the time difference in microseconds between two timespec structures
-long long diff_us(const timespec& start, const timespec& end) {
-    long long diffSecs = end.tv_sec - start.tv_sec;
-    long long diffNanos = end.tv_nsec - start.tv_nsec;
-
-    // Adjust for negative nanosecond difference
-    if (diffNanos < 0) {
-        diffSecs--;
-        diffNanos += 1000000000; // 1 billion nanoseconds in a second
-    }
-
-    // Convert the difference to microseconds
-    long long diffMicros = diffSecs * 1000000LL + diffNanos / 1000LL;
-
-    return diffMicros;
-}
 // Function to estimate the percentile from the histogram
 double estimate_percentile(std::vector<std::atomic<long long>> &local_time_hist, double percentile) {
     double total = 0;
@@ -132,6 +155,24 @@ double estimate_percentile(std::vector<std::atomic<long long>> &local_time_hist,
         }
     }
     return -1; // Percentile estimation failed
+}
+
+
+// Function to calculate the time difference in microseconds between two timespec structures
+long long diff_us(const timespec& start, const timespec& end) {
+    long long diffSecs = end.tv_sec - start.tv_sec;
+    long long diffNanos = end.tv_nsec - start.tv_nsec;
+
+    // Adjust for negative nanosecond difference
+    if (diffNanos < 0) {
+        diffSecs--;
+        diffNanos += 1000000000; // 1 billion nanoseconds in a second
+    }
+
+    // Convert the difference to microseconds
+    long long diffMicros = diffSecs * 1000000LL + diffNanos / 1000LL;
+
+    return diffMicros;
 }
 
 /**
@@ -172,11 +213,11 @@ double diff_timespec(const struct timespec *time1, const struct timespec *time0)
       + (time1->tv_nsec - time0->tv_nsec) / 1000000000.0;
 }
 
-void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size)
+void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size, int src_port)
 {
 	std::queue<struct timespec> time_q;
 	char buffer[9000];
-	int fd;
+	int fd, i = 0;
 	unsigned int cpu, node;
 	// uint64_t flow_size = 10000000000000;
 	// int times = 100;
@@ -195,21 +236,34 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	int burst = io_depth;
 	bool is_first = false;
 	struct timespec first_time;
-	// std::vector<std::atomic<long long>> local_time_hist(MAX_HIST_VALUE);
+	client.sin_family = AF_INET;
+	client.sin_port = htons(src_port);
+	client.sin_addr.s_addr = INADDR_ANY;
+	std::vector<long long> local_time_hist(MAX_HIST_VALUE);
+
 //  	struct sched_param param;
 // 	param.sched_priority = 99;
 //	sched_setscheduler(pid, SCHED_RR, &param);
 	//int q_depth = 64, count = 0;
 	    // for (int i = 0; i < count * 100; i++) {
 		/* init burst io_depth packet */
+
 	fd = socket(AF_INET, SOCK_STREAM, 0);
+	if (bind(fd, reinterpret_cast<sockaddr *>(&client), sizeof(client))
+			== -1) {
+		printf("Couldn't bind to port %d: %s\n", src_port, strerror(errno));
+		fprintf(stderr, "cannot bind\n");
+
+		exit(1);
+	}
 	if (connect(fd, dest, sizeof(struct sockaddr_in)) == -1) {
 		printf("Couldn't connect to dest %s\n", strerror(errno));
+		fprintf(stderr, "cannot bind\n");
+
 		exit(1);
 	}
 	getsockname(fd, (struct sockaddr *) &client, &clientsz);
 	getcpu(&cpu, &node);
-
 	clock_gettime(CLOCK_REALTIME, &begin_time);
 	while(burst > 0) {
 		total = 0;
@@ -220,6 +274,7 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 			// 	flag = MSG_EOR;
 			// else
 			// 	flag = MSG_MORE;
+
 			if(is_first == false) {
 				clock_gettime(CLOCK_MONOTONIC, &first_time);
 				printf("%lld.%.9ld cpu: %d pid: %d client port: %d\n", (long long)first_time.tv_sec, first_time.tv_nsec, cpu, pid, ntohs(client.sin_port));
@@ -256,8 +311,8 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 			if(total == flow_size) {
 				start_time = time_q.front();
 				clock_gettime(CLOCK_REALTIME, &end_time);
-				add_to_timehist(time_hist, diff_us(start_time, end_time));
-				// add_to_timehist(local_time_hist, diff_us(start_time, end_time));
+				// add_to_timehist(time_hist, diff_us(start_time, end_time));
+				local_add_to_timehist(local_time_hist, diff_us(start_time, end_time));
 				// latency.push_back(to_seconds(end - start));
 				time_q.pop();
 			}
@@ -287,16 +342,19 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	}
 	lfile.open("temp/netperf-" + std::to_string(id)+".log");
 	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
-	tfile <<   pid << " " << ntohs(client.sin_port) << " "
-		<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
-	// tfile <<   pid << " " << ntohs(client.sin_port) << " " 
-	// << get_mean_timehist(local_time_hist) << " " << estimate_percentile(local_time_hist, 0.99) << " " << estimate_percentile(local_time_hist, 0.999) << " "
+	// tfile <<   pid << " " << ntohs(client.sin_port) << " "
 	// 	<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
+	tfile <<   pid << " " << ntohs(client.sin_port) << " " 
+	<< local_get_mean_timehist(local_time_hist) << " " << local_estimate_percentile(local_time_hist, 0.99) << " " << local_estimate_percentile(local_time_hist, 0.999) << " "
+		<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
 	// max_size = (latency.size() > max_size) ? max_size : latency.size();
 	// for(uint32_t i = 0; i < max_size; i++) {
 	// 	lfile << "finish time: " << latency[i] << "\n"; 
 	// 	// std::cout << "finish time: " << latency[i] << "\n"; 
 	// }
+	for(i = 0; i < NUM_BINS; i++) {
+		std::atomic_fetch_add(&time_hist[i], local_time_hist[i]);
+	}
 
 	lfile.close();
 	tfile.close();
@@ -535,15 +593,16 @@ int main(int argc, char** argv)
 //	int cpu_list[8] = {0, 4, 8, 12, 16, 20, 24, 28};
 	// char buffer[8000000] = "abcdefgh\n";
 	char *buffer = (char*)malloc(10000000);
-	bool pin = false;
+	int pin = 0;
 	int flow_size = 64;
 	// buffer[63999] = 'H';
 	int status;
 	int fd;
 	int i;
 	int threads_per_core;
-	// int srcPort = 0;
+	int srcPort = 10000;
 	int io_depth = 1;
+	int sc = 1;
 	stop_count = 0;
 	lfile.open("temp/latency.log");
     for (i = 0; i < MAX_HIST_VALUE; ++i) {
@@ -576,7 +635,14 @@ int main(int argc, char** argv)
 			print_help(argv[0]);
 			exit(0);
 		} else if (strcmp(argv[nextArg], "--pin") == 0) {
-			pin = true;
+			if (nextArg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[nextArg]);
+				exit(1);
+			}
+			nextArg++;
+			pin = get_int(argv[nextArg],
+					"Bad pin %s; must be positive integer\n");
 		} else if (strcmp(argv[nextArg], "--count") == 0) {
 			if (nextArg == (argc-1)) {
 				printf("No value provided for %s option\n",
@@ -600,6 +666,16 @@ int main(int argc, char** argv)
 				length = 1000000;
 				printf("Reducing message length to %d\n", length);
 			}
+		} else if (strcmp(argv[nextArg], "--sc") == 0) {
+			if (nextArg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[nextArg]);
+				exit(1);
+			}
+			nextArg++;
+			sc = get_int(argv[nextArg],
+				"Bad single core %s; must be positive "
+				"integer\n");
 		} else if (strcmp(argv[nextArg], "--sp") == 0) {
 			if (nextArg == (argc-1)) {
 				printf("No value provided for %s option\n",
@@ -607,8 +683,8 @@ int main(int argc, char** argv)
 				exit(1);
 			}
 			nextArg++;
-			// srcPort = get_int(argv[nextArg],
-			// 	"Bad srcPort %s; must be positive integer\n");
+			srcPort = get_int(argv[nextArg],
+				"Bad srcPort %s; must be positive integer\n");
 		} else if (strcmp(argv[nextArg], "--limit") == 0) {
 			if (nextArg == (argc-1)) {
 				printf("No value provided for %s option\n",
@@ -659,7 +735,12 @@ int main(int argc, char** argv)
 	// ibuf[0] = ibuf[1] = length;
 	// seed_buffer(&ibuf[2], sizeof32(buffer) - 2*sizeof32(int), seed);
 	tempArg = nextArg;
-	threads_per_core = count / 2;
+	if(sc == 1) {
+		sc = 2;
+	} else {
+		sc = 16;
+	}
+	threads_per_core = count / sc;
 	for(i = 0; i < count; i++) {
 		nextArg = tempArg;
 		// memset(&addr_in, 0, sizeof(addr_in));
@@ -676,11 +757,14 @@ int main(int argc, char** argv)
 
 		for ( ; nextArg < argc; nextArg++) {
 			if (strcmp(argv[nextArg], "tcpppasync") == 0) {
-				workers.push_back(std::thread(test_ndping_send, dest, i, io_depth, flow_size));
-				if(pin) {
+				workers.push_back(std::thread(test_ndping_send, dest, i, io_depth, flow_size, srcPort + i));
+				if(pin == 1) {
 					cpu_set_t cpuset;
 					CPU_ZERO(&cpuset);
-					CPU_SET(cpu_list[i / threads_per_core], &cpuset);
+					if(count == 1)
+						CPU_SET(cpu_list[0], &cpuset);
+					else 
+						CPU_SET(cpu_list[i / threads_per_core], &cpuset);
 					pthread_setaffinity_np(workers[workers.size() - 1].native_handle(), sizeof(cpu_set_t), &cpuset);
 				}	
 				//workers.push_back(std::thread(test_ndping_recv, fd, dest, srcPort - 10000));
