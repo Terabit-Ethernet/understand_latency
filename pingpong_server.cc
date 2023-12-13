@@ -460,7 +460,7 @@ void tcp_connection(int fd, struct sockaddr_in source)
  * (one thread per connection) and processes messages on those connections.
  * @port:  Port number on which to listen.
  */
-void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
+void tcp_server(int port, int num_threads, int iodepth, int flow_size, int pin, int permute, int sc)
 {
 	int cpu_list[16] = {0, 32, 4, 36, 8, 40, 12, 44, 16, 48, 20, 52, 24, 56, 28, 60};
 	// int cpu_list[2] = {0, 32};
@@ -468,9 +468,16 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
  	std::unique_lock<std::mutex> lk(m,  std::defer_lock);
 	int i = 0;
-	int threads_per_core = num_threads / 2;
+	int threads_per_core = num_threads;
 	int conns = 0;
 	bool not_created = true;
+	if(sc == 1) {
+		sc = 2;
+	} else {
+		sc = 16;
+	}
+	threads_per_core = threads_per_core / sc;
+
 	if (listen_fd == -1) {
 		printf("Couldn't open server socket: %s\n", strerror(errno));
 		exit(1);
@@ -496,6 +503,7 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = INADDR_ANY;
+
 	if (bind(listen_fd, reinterpret_cast<sockaddr *>(&addr), sizeof(addr))
 			== -1) {
 		printf("Couldn't bind to port %d: %s\n", port, strerror(errno));
@@ -527,10 +535,26 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, bool pin)
 				data = socklist.front();
 				socklist.pop_front();
 				std::thread thread(nd_pingpong, data.fd, data.source, data.iodepth, data.flow_size);
-				if(pin) {
+				if(pin == 1) {
 					cpu_set_t cpuset;
 					CPU_ZERO(&cpuset);
-					CPU_SET(cpu_list[i / threads_per_core], &cpuset);
+					/* asssume sender port is starting with 10000 */
+					if(conns == 1) {
+						CPU_SET(cpu_list[0], &cpuset);
+					} else {
+						if(permute == 1) {
+							// if((ntohs(data.source.sin_port) - 10000) % 16 == 15) {
+							// 	if ((ntohs(data.source.sin_port) - 10000) / threads_per_core == 0)
+							// 		CPU_SET(cpu_list[1], &cpuset);
+							// 	else
+							// 		CPU_SET(cpu_list[0], &cpuset);
+							// }
+							// else
+								CPU_SET(cpu_list[(ntohs(data.source.sin_port) - 10000) / threads_per_core], &cpuset);
+						}
+						else
+							CPU_SET(cpu_list[i / threads_per_core], &cpuset);
+					}
 					pthread_setaffinity_np(thread.native_handle(), sizeof(cpu_set_t), &cpuset);
 				}
 				thread.detach();
@@ -850,8 +874,10 @@ int main(int argc, char** argv) {
 	int num_ports = 1;
 	int iodepth = 1;
 	int flow_size = 64; // bytes
-	bool pin = false;
+	int pin = 0;
+	int permute = 0;
 	int count = 1;
+	int sc = 1;
 	std::string ip;
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
@@ -897,6 +923,15 @@ int main(int argc, char** argv) {
 			next_arg++;
 			flow_size = get_int(argv[next_arg], 
 				"Bad flow size %s; must be positive integer\n");
+		} else if (strcmp(argv[next_arg], "--sc") == 0) {
+			if (next_arg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[next_arg]);
+				exit(1);
+			}
+			next_arg++;
+			sc = get_int(argv[next_arg], 
+				"Bad single core %s; must be positive integer\n");
 		} else if (strcmp(argv[next_arg], "--num_ports") == 0) {
 			if (next_arg == (argc-1)) {
 				printf("No value provided for %s option\n",
@@ -909,10 +944,26 @@ int main(int argc, char** argv) {
 		} else if (strcmp(argv[next_arg], "--validate") == 0) {
 			validate = true;
 		}else if (strcmp(argv[next_arg], "--pin") == 0) {
-			pin = true;
+			if (next_arg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[next_arg]);
+				exit(1);
+			}
+			next_arg++;
+			pin = get_int(argv[next_arg],
+				"pin %s; must be positive integer\n");
 		} else if (strcmp(argv[next_arg], "--verbose") == 0) {
 			verbose = true;
-		} else if (strcmp(argv[next_arg], "--count") == 0) {
+		}else if (strcmp(argv[next_arg], "--permute") == 0) {
+			if (next_arg == (argc-1)) {
+				printf("No value provided for %s option\n",
+					argv[next_arg]);
+				exit(1);
+			}
+			next_arg++;
+			permute = get_int(argv[next_arg], 
+				"Bad permute %s; must be positive integer\n");
+		}  else if (strcmp(argv[next_arg], "--count") == 0) {
 			if (next_arg == (argc-1)) {
 				printf("No value provided for %s option\n",
 					argv[next_arg]);
@@ -933,7 +984,7 @@ int main(int argc, char** argv) {
 	// 	printf("port number:%i\n", port + i);
 	// 	workers.push_back(std::thread (homa_server, ip, port+i));
 	// }
-	workers.push_back(std::thread(tcp_server, port, count, iodepth, flow_size, pin));
+	workers.push_back(std::thread(tcp_server, port, count, iodepth, flow_size, pin, permute, sc));
 	// workers.push_back(std::thread(udp_server, port));
 	// workers.push_back(std::thread(nd_server, port));
 	// workers.push_back(std::thread(aggre_thread, &agg_stats));
