@@ -4,11 +4,12 @@ import subprocess
 from itertools import product
 
 # Define parameters
-hd=1
+hd=100
 our_patch=0
 c_state=1
-num_apps = [1, 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80]
-# num_apps = [8]
+# num_apps = [1, 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56]
+num_apps = [52]
+# num_apps = [44]
 # 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
 flowsize = [64]
 iodepth = [1]
@@ -19,7 +20,7 @@ hrtick = [0]
 sched = [100]
 cores = [1]
 runs = [0, 1, 2, 3, 4]
-breakdown = False
+breakdown = True
 
 # sys = "linux"
 
@@ -140,6 +141,7 @@ def get_samples(f, is_client):
                 #'full': ts['tx_finish'] - ts['rx_irq'],
                 'full': ts['tx_finish'] - ts['rx_hw'],
             })
+
     return latencies
 
 def get_latency_breakdown_e2e(client_sample, server_sample):
@@ -208,11 +210,13 @@ def get_latency_breakdown_e2e(client_sample, server_sample):
     
     # print(mean_sample)
     e2e_sample.sort(key = lambda x: x['e2e_lat'])
-    # i = round(len(e2e_sample) * 0.997) - 1
-    # while i < len(e2e_sample):
-    #     print (e2e_sample[i])
-    #     i += 1
-    return mean_sample, e2e_sample[round(len(e2e_sample) * 0.999) - 1], p999_per_attribute
+    total = 0
+    i = round(len(e2e_sample) * 0.999) - 1
+    while i < len(e2e_sample):
+        if e2e_sample[i]['client']['rx_irq'] + e2e_sample[i]['server']['rx_irq'] > 300000:
+            total += 1
+        i += 1
+    return mean_sample, e2e_sample[round(len(e2e_sample) * 0.999) - 1], p999_per_attribute, total, len(e2e_sample) * 0.001
 
 def get_latency_breakdown(f, is_client):
     # Read the latencies file
@@ -405,6 +409,8 @@ def main():
         p999_breakdown_s[key] = 0
         p999_per_attribute_c[key] = 0
         p999_per_attribute_s[key] = 0
+    total_irq = 0
+    total_run = 0
     for n, f, i, d, p, perm, h, s, core, run in combinations:
         # Execute the main script
         DIR = "results/{}_{}_{}/{}_{}_{}_{}_{}_{}_{}_{}_{}_{}".format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run)
@@ -416,8 +422,10 @@ def main():
         if breakdown:
             client_samples = get_samples(f_client, True)
             server_samples = get_samples(f_server, False)
-            mean_breakdown, p999_breakdown, p999_per_attribute = get_latency_breakdown_e2e(client_samples, server_samples)
+            mean_breakdown, p999_breakdown, p999_per_attribute, irq_per_run, total_per_run = get_latency_breakdown_e2e(client_samples, server_samples)
         # print(DIR)
+            total_irq += irq_per_run
+            total_run += total_per_run
         mean,l_999, thpt = get_latency_thpt_num(DIR)
         mean_total += mean
         l999_total += l_999
@@ -431,10 +439,12 @@ def main():
                 p999_breakdown_s[key] += p999_breakdown['server'][key] / 1000.0
                 p999_per_attribute_c[key] += p999_per_attribute['client'][key] / 1000.0
                 p999_per_attribute_s[key] += p999_per_attribute['server'][key] / 1000.0
+                
         # irq_client_total += client_latency_breakdown[0]['rx_irq'] / 1000.0
         # irq_server_total += server_latency_breakdown[0]['rx_irq'] / 1000.0
         # rx_sched_client_total += client_latency_breakdown[0]['rx_sched'] / 1000.0
         # rx_sched_server_total += server_latency_breakdown[0]['rx_sched'] / 1000.0
+        print(p999_breakdown['client']['rx_sched'] / 1000.0, p999_breakdown['server']['rx_sched'] / 1000.0)
         if run == runs[len(runs) - 1]:
             print(n, mean_total / len(runs), l999_total / len(runs), thpt_total / len(runs))
             # print(n, irq_client_total / len(runs), irq_server_total / len(runs), 
@@ -454,6 +464,10 @@ def main():
                 p999_breakdown_s[key] = 0
                 p999_per_attribute_c[key] = 0
                 p999_per_attribute_s[key] = 0
+            # if breakdown:
+            #     print ("percentage: ", total_irq / total_run)
+            total_irq = 0
+            total_run = 0
             # irq_client_total = irq_server_total = rx_sched_client_total = rx_sched_server_total = 0
         # Create directories and copy files
 
