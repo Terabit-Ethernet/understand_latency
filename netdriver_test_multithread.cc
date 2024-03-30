@@ -222,6 +222,7 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	// uint64_t flow_size = 10000000000000;
 	// int times = 100;
 	int flag = 0;
+	// unsigned int size = 0;
 	// std::vector<double> latency;
 	uint64_t write_len = 0;
 	struct timespec start_time, end_time, begin_time;
@@ -262,6 +263,9 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 
 		exit(1);
 	}
+	flag = 1;
+	// setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+	flag = 0;
 	getsockname(fd, (struct sockaddr *) &client, &clientsz);
 	getcpu(&cpu, &node);
 	clock_gettime(CLOCK_REALTIME, &begin_time);
@@ -735,11 +739,8 @@ int main(int argc, char** argv)
 	// ibuf[0] = ibuf[1] = length;
 	// seed_buffer(&ibuf[2], sizeof32(buffer) - 2*sizeof32(int), seed);
 	tempArg = nextArg;
-	if(sc == 1) {
-		sc = 2;
-	} else {
-		sc = 16;
-	}
+	/* assume having hyperthreading */
+	sc = 2 * sc;
 	threads_per_core = count / sc;
 	for(i = 0; i < count; i++) {
 		nextArg = tempArg;
@@ -761,8 +762,13 @@ int main(int argc, char** argv)
 				if(pin == 1) {
 					cpu_set_t cpuset;
 					CPU_ZERO(&cpuset);
-					if(count == 1)
-						CPU_SET(cpu_list[0], &cpuset);
+					if(count == 1 || threads_per_core == 0) {
+						if(sc == 2)
+							CPU_SET(cpu_list[0], &cpuset);
+						else {
+							CPU_SET(cpu_list[(i * 2) % sc], &cpuset);
+						}
+					}
 					else 
 						CPU_SET(cpu_list[i / threads_per_core], &cpuset);
 					pthread_setaffinity_np(workers[workers.size() - 1].native_handle(), sizeof(cpu_set_t), &cpuset);
