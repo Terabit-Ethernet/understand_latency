@@ -174,6 +174,9 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 	if (getpeername(fd, (struct sockaddr *)&sin, &len) == -1)
 	    perror("getsockname");
 	getcpu(&cpu, &node);
+	flag = 1;
+//	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
+	flag = 0;
 //	printf("core: %d pid: %d port number: %d\n",cpu,  pid, ntohs(sin.sin_port));
 //	fflush (stdout);
 	// start_cycle = rdtsc();
@@ -471,11 +474,9 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, int pin, 
 	int threads_per_core = num_threads;
 	int conns = 0;
 	bool not_created = true;
-	if(sc == 1) {
-		sc = 2;
-	} else {
-		sc = 16;
-	}
+	
+	/* assume having hyperthreading */
+	sc = 2 * sc;
 	threads_per_core = threads_per_core / sc;
 
 	if (listen_fd == -1) {
@@ -539,8 +540,13 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, int pin, 
 					cpu_set_t cpuset;
 					CPU_ZERO(&cpuset);
 					/* asssume sender port is starting with 10000 */
-					if(conns == 1) {
-						CPU_SET(cpu_list[0], &cpuset);
+					if(conns == 1 || threads_per_core == 0) {
+						if(sc == 2) {
+							CPU_SET(cpu_list[0], &cpuset);
+						} else {
+							CPU_SET(cpu_list[(i * 2) % sc], &cpuset);
+						}
+					
 					} else {
 						if(permute == 1) {
 							// if((ntohs(data.source.sin_port) - 10000) % 16 == 15) {
