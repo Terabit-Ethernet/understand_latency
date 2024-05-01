@@ -1,15 +1,18 @@
 import os
 import re
 import subprocess
+import numpy as np
 from itertools import product
 
 # Define parameters
-hd=100
-our_patch=0
+hd="nsdi"
+our_patch="no_acc_irq"
 c_state=1
-# num_apps = [1, 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56]
-num_apps = [52]
-# num_apps = [44]
+num_apps = [32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80]
+# num_apps = [1, 2, 4, 8, 16]
+# need to run 8, 16
+# num_apps = [40, 44, 48, 52, 56]
+# num_apps =[84, 88]
 # 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
 flowsize = [64]
 iodepth = [1]
@@ -17,11 +20,11 @@ dim = [1]
 pin = [1]
 permute = [2]
 hrtick = [0]
-sched = [100]
+sched = [0]
 cores = [1]
-runs = [0, 1, 2, 3, 4]
-breakdown = True
-
+runs = [0,1,2,3,4]
+breakdown = False
+rx_sched_only = False
 # sys = "linux"
 
 # Define the configuration data
@@ -43,6 +46,17 @@ runs = {}
 
 categories = ['rx_irq', 'rx_napi', 'rx_ip', 'rx_tcp', 'rx_sched', 'rx_data_copy', 'app', 'tx_data_copy', 'tx_tcp', 'tx_ip', 'tx_queue', 'tx_xmit']
 
+def get_breakdown_rx_sched(file_path):
+        
+    # Read the file and extract the required values
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+        # Extract the second value from the second and sixth rows
+        # Assuming the file format is consistent with your example and that rows are 0-indexed
+        mean = float(lines[1].split()[1])
+        p999 = float(lines[5].split()[1])
+    return mean, p999
 def get_samples(f, is_client):
     # Read the latencies file
     lines = []
@@ -377,6 +391,31 @@ def get_latency_thpt_num(DIR):
         thpt = float(file.readlines()[1].split()[0])
     return mean, l_999, thpt
 
+def extract_idle_usage(lines, cpu_number):
+    i = 0
+    while i < len(lines):
+        if "Average:" not in lines[i]: 
+            i += 1
+        else:
+            break
+    header = lines[i].split()
+    cpu_index = header.index(f"%idle")
+    for line in lines[1 + i:]:
+        fields = line.split()
+        if fields[1] == str(cpu_number):
+            return float(fields[cpu_index])
+
+def read_cpu_files(file_path):
+        
+    # Read the file and extract the required values
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+
+        # Extract the second value from the second and sixth rows
+        # Assuming the file format is consistent with your example and that rows are 0-indexed
+        app_cpu =(100 * 2 - extract_idle_usage(lines, 0) - extract_idle_usage(lines, 32)) / 2
+    return app_cpu
+
 def wrtie_to_config(DIR, hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run):
 
     # The path to the file where the config will be written
@@ -389,7 +428,7 @@ def wrtie_to_config(DIR, hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core
 def main():
     # Generate all combinations
     mean_total = 0
-    l999_total = 0
+    l999_total = []
     thpt_total = 0
     irq_client_total = 0
     irq_server_total = 0
@@ -402,6 +441,10 @@ def main():
     p999_breakdown_s = {}
     p999_per_attribute_c = {}
     p999_per_attribute_s = {}
+    mean_rx_sched_c = []
+    mean_rx_sched_s = []
+    p999_rx_sched_c = []
+    p999_rx_sched_s = []
     for key in categories:
         mean_breakdown_c[key] = 0
         mean_breakdown_s[key] = 0
@@ -411,12 +454,14 @@ def main():
         p999_per_attribute_s[key] = 0
     total_irq = 0
     total_run = 0
+    total_client_cpu = 0
+    total_server_cpu = 0
     for n, f, i, d, p, perm, h, s, core, run in combinations:
         # Execute the main script
         DIR = "results/{}_{}_{}/{}_{}_{}_{}_{}_{}_{}_{}_{}_{}".format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run)
         # print(DIR)
-        f_client = os.path.join(DIR, "latencies-{}.log".format(n))
-        f_server = os.path.join(DIR, "latencies-{}-server.log".format(n))
+        f_client = os.path.join(DIR, "latencies-{}.log".format(n * core))
+        f_server = os.path.join(DIR, "latencies-{}-server.log".format(n * core))
         # mean_client, p999_client = get_latency_breakdown(f_client, True)
         # mean_server, p999_server = get_latency_breakdown(f_server, False)
         if breakdown:
@@ -426,11 +471,23 @@ def main():
         # print(DIR)
             total_irq += irq_per_run
             total_run += total_per_run
+            print(p999_breakdown['client']['rx_sched'], p999_breakdown['server']['rx_sched'])
+
         mean,l_999, thpt = get_latency_thpt_num(DIR)
         mean_total += mean
-        l999_total += l_999
+        l999_total.append(l_999)
         thpt_total += thpt
-        # print(p999_breakdown['client']['rx_sched'], p999_breakdown['server']['rx_sched'])
+        cpu_file = "{}/{}".format(DIR, "cpu-server-{}.log".format(n * core))
+        app_cpu = read_cpu_files(cpu_file)
+        cpu_file = "{}/{}".format(DIR, "cpu-{}.log".format(n * core))
+        client_app_cpu = read_cpu_files(cpu_file)
+        total_client_cpu += client_app_cpu
+        total_server_cpu += app_cpu
+        if rx_sched_only:
+                mean_rx_sched_c.append(get_breakdown_rx_sched(DIR + "/linux_latency_breakdown_rx_sched_c")[0])
+                mean_rx_sched_s.append(get_breakdown_rx_sched(DIR + "/linux_latency_breakdown_rx_sched_s")[0])
+                p999_rx_sched_c.append(get_breakdown_rx_sched(DIR + "/linux_latency_breakdown_rx_sched_c")[1])
+                p999_rx_sched_s.append(get_breakdown_rx_sched(DIR + "/linux_latency_breakdown_rx_sched_s")[1])
         for key in categories:
             if breakdown:
                 mean_breakdown_c[key] += mean_breakdown['client'][key] / 1000.0
@@ -439,14 +496,15 @@ def main():
                 p999_breakdown_s[key] += p999_breakdown['server'][key] / 1000.0
                 p999_per_attribute_c[key] += p999_per_attribute['client'][key] / 1000.0
                 p999_per_attribute_s[key] += p999_per_attribute['server'][key] / 1000.0
-                
         # irq_client_total += client_latency_breakdown[0]['rx_irq'] / 1000.0
         # irq_server_total += server_latency_breakdown[0]['rx_irq'] / 1000.0
         # rx_sched_client_total += client_latency_breakdown[0]['rx_sched'] / 1000.0
         # rx_sched_server_total += server_latency_breakdown[0]['rx_sched'] / 1000.0
-        print(p999_breakdown['client']['rx_sched'] / 1000.0, p999_breakdown['server']['rx_sched'] / 1000.0)
+        # print(p999_breakdown['client']['rx_sched'] / 1000.0, p999_breakdown['server']['rx_sched'] / 1000.0)
         if run == runs[len(runs) - 1]:
-            print(n, mean_total / len(runs), l999_total / len(runs), thpt_total / len(runs))
+            if not breakdown and not rx_sched_only:
+                print(n, mean_total / len(runs), np.mean(l999_total), thpt_total / len(runs), 
+                    total_client_cpu / len(runs), total_server_cpu / len(runs), np.min(l999_total), np.max(l999_total))
             # print(n, irq_client_total / len(runs), irq_server_total / len(runs), 
             #     rx_sched_client_total / len(runs), rx_sched_server_total / len(runs))
             if breakdown:
@@ -455,8 +513,10 @@ def main():
                 for key in categories:
                     print("{} {} {} {} {}".format(key.replace("_","\\\\\_"), mean_breakdown_s[key] / len(runs), p999_breakdown_s[key] / len(runs), p999_per_attribute_s[key] /len(runs), 2))
             mean_total = 0
-            l999_total = 0
+            l999_total = []
             thpt_total = 0
+            total_client_cpu = 0
+            total_server_cpu = 0
             for key in categories:
                 mean_breakdown_c[key] = 0
                 mean_breakdown_s[key] = 0
@@ -468,7 +528,17 @@ def main():
             #     print ("percentage: ", total_irq / total_run)
             total_irq = 0
             total_run = 0
+            if rx_sched_only:
+                print("{} {} {} {} {}".format(i, sum(mean_rx_sched_c) / len(runs), sum(p999_rx_sched_c) / len(runs), 
+                    sum(mean_rx_sched_s) / len(runs), sum(p999_rx_sched_s) / len(runs)))
+            mean_rx_sched_c = []
+            mean_rx_sched_s = []
+            p999_rx_sched_c = []
+            p999_rx_sched_s = []    
             # irq_client_total = irq_server_total = rx_sched_client_total = rx_sched_server_total = 0
         # Create directories and copy files
 
 main()
+
+
+
