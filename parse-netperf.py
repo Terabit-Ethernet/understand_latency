@@ -117,7 +117,7 @@ def netfilter_output():
     f = os.path.join(DIR, "client_netfilter.log")
     with open(f, "r") as file:
         lines = file.readlines()
-        start_index = 7
+        start_index = 8
         for line in lines:
             thread_id = 0
             params = line.split()
@@ -129,7 +129,7 @@ def netfilter_output():
     f = os.path.join(DIR, "server_netfilter.log")
     with open(f, "r") as file:
         lines = file.readlines()
-        start_index = 7
+        start_index = 8
         for line in lines:
             thread_id = 0
             params = line.split()
@@ -233,9 +233,9 @@ with open(f, "r") as file:
             continue
         t = thread_data()
         params = line.split()
-        t.client_core = int(params[1])
-        t.client_pid = int(params[3])
-        t.client_port = int(params[6])
+        t.client_core = int(params[2])
+        t.client_pid = int(params[4])
+        t.client_port = int(params[7])
         thread_dict[t.client_port] = t
 
 f = os.path.join(DIR, "server.log")
@@ -245,9 +245,9 @@ with open(f, "r") as file:
         if "core" not in line:
             continue
         params = line.split()
-        t = thread_dict[int(params[6])]
-        t.server_core = int(params[1])
-        t.server_pid = int(params[3])
+        t = thread_dict[int(params[7])]
+        t.server_core = int(params[2])
+        t.server_pid = int(params[4])
         thread_dict[t.client_port] = t
 
 # client_netperf_dict, server_netperf_dict = netfilter_output()
@@ -265,8 +265,8 @@ for i in range(0, N ):
         for line in lines:
             params = line.split()
             time = float(params[2])
-            if num > 10000000:
-                break
+            #if num > 10000000:
+            #    break
             results.append(time)
             temp_result.append(time)
             num += 1
@@ -278,11 +278,12 @@ for i in range(0, N ):
             params = line.split()
             port = int(params[1])
             thpt = float(params[5])
+            latency = float(params[4])
             # latency = np.percentile(temp_result, 99.9)
             total_thpt += thpt
             t = thread_dict[port]
             t.thpt = thpt
-            # t.latency = latency
+            t.latency = latency
             thread_dict[port] = t
 
 # for key in sorted(thread_dict.keys()):
@@ -341,12 +342,11 @@ for i in range(0, N ):
     #     client_irq, client_rx_sched, client_latency, client_irq_999, client_rx_sched_999, client_latency_999,
     #     server_irq, server_rx_sched, server_latency, server_irq_999, server_rx_sched_999, server_latency_999,
     #     client_interrupt, server_interrupt, client_interrupt + server_interrupt))
-    # print ('''{}, {}, {}, {}, {}, {}, {}, {}'''
-    # .format(t.client_port, t.client_core, t.server_core, t.client_pid, t.server_pid, t.thpt, t.latency, total_netfilter_pkt))
+    # print ('''{}, {}, {}, {}, {}, {}, {}'''
+    # .format(t.client_port, t.client_core, t.server_core, t.client_pid, t.server_pid, t.thpt, t.latency / 1000000.0))
 results.sort()
 # Print the netperf latencies
 categories = ['m_lat', 'p99_lat', 'p999_lat']
 print("{}\t{}\t{}".format('m_lat','p99_lat',  'p999_lat', "thpt"))
 
 print("{}\t".format(total_thpt))
-
