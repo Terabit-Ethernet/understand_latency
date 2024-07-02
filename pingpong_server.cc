@@ -64,7 +64,8 @@ int port = 4000;
  */
 bool validate = false;
 
-
+int thread_count = 1;
+std::atomic<int> connected_count;
 
 class Conn_Data {
 public:
@@ -95,7 +96,7 @@ void init_agg_stats(struct Agg_Stats* stats, int interval_sec) {
 	stats->interval_sec = interval_sec;
 }
 
-std::mutex m;
+std::mutex mtx;           // mutex for critical section
 std::condition_variable cv;
 std::list<Conn_Data> socklist;
 
@@ -131,6 +132,16 @@ double diff_timespec(const struct timespec *time1, const struct timespec *time0)
  */
 void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 {
+	// std::unique_lock<std::mutex> lck(mtx);
+	// atomic_fetch_add(&connected_count, 1);
+	// if(atomic_load(&connected_count) == thread_count) {
+	// 	lck.unlock();
+	// 	cv.notify_all();
+	// }
+	// else {
+	// 	cv.wait(lck, []{ return atomic_load(&connected_count) == thread_count; });
+	// 	lck.unlock();
+	// }
 	// int flag = 1;
 	bool is_first = false;
 	struct timespec first_time;
@@ -141,15 +152,7 @@ void nd_pingpong(int fd, struct sockaddr_in source, int iodepth, int flow_size)
 	int flag;
 	// int iodepth;
 	unsigned int cpu, node;
-    // std::unique_lock lk(m);
-    // cv.wait(lk, []{return !socklist.empty();});
-	// Conn_Data data;
-	// data = socklist.front();
-	// socklist.pop_front();
-    // lk.unlock();
-	// iodepth = data.iodepth;
-	
-    // cv.notify_one();
+
 
 	// int times = 10000;
 	// int cur_length = 0;
@@ -469,7 +472,7 @@ void tcp_server(int port, int num_threads, int iodepth, int flow_size, int pin, 
 	// int cpu_list[2] = {0, 32};
 	//int cpu_list[8] = {0, 4, 8, 12, 16, 20, 24, 28};
 	int listen_fd = socket(PF_INET, SOCK_STREAM, 0);
- 	std::unique_lock<std::mutex> lk(m,  std::defer_lock);
+ 	// std::unique_lock<std::mutex> lk(m,  std::defer_lock);
 	int i = 0;
 	int threads_per_core = num_threads;
 	int conns = 0;
@@ -882,9 +885,9 @@ int main(int argc, char** argv) {
 	int flow_size = 64; // bytes
 	int pin = 0;
 	int permute = 0;
-	int count = 1;
 	int sc = 1;
 	std::string ip;
+	atomic_store(&connected_count, 0);
 	if ((argc >= 2) && (strcmp(argv[1], "--help") == 0)) {
 		print_help(argv[0]);
 		exit(0);
@@ -976,7 +979,7 @@ int main(int argc, char** argv) {
 				exit(1);
 			}
 			next_arg++;
-			count = get_int(argv[next_arg],
+			thread_count = get_int(argv[next_arg],
 				"Bad num of threads %s; must be positive integer\n");
 		}  else {
 			printf("Unknown option %s; type '%s --help' for help\n",
@@ -990,7 +993,7 @@ int main(int argc, char** argv) {
 	// 	printf("port number:%i\n", port + i);
 	// 	workers.push_back(std::thread (homa_server, ip, port+i));
 	// }
-	workers.push_back(std::thread(tcp_server, port, count, iodepth, flow_size, pin, permute, sc));
+	workers.push_back(std::thread(tcp_server, port, thread_count, iodepth, flow_size, pin, permute, sc));
 	// workers.push_back(std::thread(udp_server, port));
 	// workers.push_back(std::thread(nd_server, port));
 	// workers.push_back(std::thread(aggre_thread, &agg_stats));
