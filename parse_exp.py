@@ -3,26 +3,28 @@ import re
 import subprocess
 import numpy as np
 from itertools import product
-
+import matplotlib.pyplot as plt
+import seaborn as sns
 # Define parameters
-hd="nsdi"
-our_patch="no_acc_irq"
+hd="test_perf_dim_disable"
+our_patch="1"
 c_state=1
-num_apps = [32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80]
-# num_apps = [1, 2, 4, 8, 16]
+num_apps = [56]
 # need to run 8, 16
 # num_apps = [40, 44, 48, 52, 56]
 # num_apps =[84, 88]
 # 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
 flowsize = [64]
 iodepth = [1]
-dim = [1]
+dim = [0]
 pin = [1]
-permute = [2]
+permute = [1]
 hrtick = [0]
-sched = [0]
+sched = [100]
 cores = [1]
-runs = [0,1,2,3,4]
+runs = [12, 13, 14]
+timeout = [90]
+pkt_threshold = [28]
 breakdown = False
 rx_sched_only = False
 # sys = "linux"
@@ -230,7 +232,7 @@ def get_latency_breakdown_e2e(client_sample, server_sample):
         if e2e_sample[i]['client']['rx_irq'] + e2e_sample[i]['server']['rx_irq'] > 300000:
             total += 1
         i += 1
-    return mean_sample, e2e_sample[round(len(e2e_sample) * 0.999) - 1], p999_per_attribute, total, len(e2e_sample) * 0.001
+    return mean_sample, e2e_sample[round(len(e2e_sample) * 0.999) - 1], p999_per_attribute, total, len(e2e_sample) * 0.001, e2e_sample
 
 def get_latency_breakdown(f, is_client):
     # Read the latencies file
@@ -386,10 +388,11 @@ def get_latency_thpt_num(DIR):
     with open(latency_file_name, 'r') as file:
         line = file.readlines()[0]
         mean = float(line.split()[0])
+        l_99 = float(line.split()[1])
         l_999 = float(line.split()[2])
     with open(thpt_file_name, 'r') as file:
         thpt = float(file.readlines()[1].split()[0])
-    return mean, l_999, thpt
+    return mean, l_99, l_999, thpt
 
 def extract_idle_usage(lines, cpu_number):
     i = 0
@@ -410,7 +413,6 @@ def read_cpu_files(file_path):
     # Read the file and extract the required values
     with open(file_path, 'r') as file:
         lines = file.readlines()
-
         # Extract the second value from the second and sixth rows
         # Assuming the file format is consistent with your example and that rows are 0-indexed
         app_cpu =(100 * 2 - extract_idle_usage(lines, 0) - extract_idle_usage(lines, 32)) / 2
@@ -425,16 +427,94 @@ def wrtie_to_config(DIR, hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core
     with open(config_file_path, 'w') as file:
         file.write(config_data.format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run))
 
+def write_breakdown(dir_name, mean_breakdown, p999_breakdown, p999_per_attribute):
+
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    # The path to the file where the config will be written
+    file_name = '{}/linux_latency_breakdown_mean_999_overall'.format(dir_name)
+
+    # Write the config data to the file
+    with open(file_name, 'w') as file:
+        for key in categories:
+            file.write("{} {} {} {} {}\n".format(key.replace("_","\\\\\_"), mean_breakdown['client'][key] / 1000.0 , p999_breakdown['client'][key] / 1000.0, p999_per_attribute['client'][key] / 1000.0, 1))
+        for key in categories:
+            file.write("{} {} {} {} {}\n".format(key.replace("_","\\\\\_"), mean_breakdown['server'][key] / 1000.0, p999_breakdown['server'][key] / 1000.0, p999_per_attribute['server'][key] / 1000.0, 2))
+
+    file.close()
+
+def write_breakdown_overall(dir_name, runs, mean_breakdown_c, mean_breakdown_s, p999_breakdown_c, p999_breakdown_s, p999_per_attribute_c, p999_per_attribute_s):
+
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    # The path to the file where the config will be written
+    file_name = '{}/linux_latency_breakdown_mean_999_overall'.format(dir_name)
+
+    # Write the config data to the file
+    with open(file_name, 'w') as file:
+        for key in categories:
+            file.write("{} {} {} {} {}\n".format(key.replace("_","\\\\\_"), mean_breakdown_c[key] / runs , p999_breakdown_c[key] / runs, p999_per_attribute_c[key] / runs, 1))
+        for key in categories:
+            file.write("{} {} {} {} {}\n".format(key.replace("_","\\\\\_"), mean_breakdown_s[key] / runs, p999_breakdown_s[key] / runs, p999_per_attribute_s[key] / runs, 2))
+
+    file.close()
+
+def convert_dict_to_arr(dictionary):
+    result = []
+    for i in categories:
+        result.append(dictionary['client'][i])
+    for i in categories:
+        result.append(dictionary['server'][i])
+    return result
+
+def generate_heatmap(dir_name, n, run, e2e_sample):
+    data = []
+    plt.rcParams['xtick.labelsize'] = 12
+    plt.rcParams['ytick.labelsize'] = 12
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    # Generating random data for illustration
+    num_samples = int(len(e2e_sample) * 0.002)
+    index = len(e2e_sample) - num_samples
+    for i in range(0, num_samples):
+        data.append(convert_dict_to_arr(e2e_sample[index + i]))
+    data = np.array(data) / 1000.0
+    data = data.T
+    # data = np.concatenate((e2e_sample['client'], e2e_sample['server']), axis=1)
+    # Categories for the y-axis
+    # Create the heatmap
+    plt.figure(figsize=(10, 8))
+    ax = sns.heatmap(data, vmin = 0, vmax = 1500, yticklabels=categories + categories, cmap="Reds", cbar_kws={'label': 'Latency range(us)'})
+    # Define the tick positions and labels
+    tick_positions = np.linspace(0, data.shape[1] - 1, 11, dtype=int)  # Positions from 0 to 999, 10 evenly spaced
+    tick_labels = ['99.8', '99.82', '99.84', '99.86', '99.88', '99.9', '99.92', '99.94', '99.96', '99.98', '100.0']  # Labels scaled from 0 to 90
+
+    # Set the ticks on the x-axis
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(tick_labels)
+    # plt.yticks(rotation=30)
+
+    plt.axhline(11.75, color='k', linestyle='--', linewidth=2)
+    ax.text(len(data[0]) / 2, 11, 'Client',  ha='center', va='center', fontsize='large', color='black', zorder=5, weight='bold')
+    ax.text(len(data[0]) / 2, 23, 'Server', ha='center', va='center', fontsize='large', color='black', zorder=5, weight='bold')
+    plt.xlabel("Percentile", fontsize=12)
+    # plt.ylabel("Latency Breakdown Categories", fontsize=12)
+
+    # plt.show()
+    plt.savefig('{}/heatmap_{}_{}.png'.format(dir_name, n, run), dpi=300)  # Replace 'your_plot.png' with your desired file name and format
+    plt.close()
+
 def main():
     # Generate all combinations
-    mean_total = 0
+    mean_total = []
+    l99_total = []
     l999_total = []
     thpt_total = 0
     irq_client_total = 0
     irq_server_total = 0
     rx_sched_client_total = 0
     rx_sched_server_total = 0
-    combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, runs)
+    combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, timeout, pkt_threshold, runs)
     mean_breakdown_c = {}
     mean_breakdown_s = {}
     p999_breakdown_c = {}
@@ -456,9 +536,9 @@ def main():
     total_run = 0
     total_client_cpu = 0
     total_server_cpu = 0
-    for n, f, i, d, p, perm, h, s, core, run in combinations:
+    for n, f, i, d, p, perm, h, s, core, t, pkt_t, run in combinations:
         # Execute the main script
-        DIR = "results/{}_{}_{}/{}_{}_{}_{}_{}_{}_{}_{}_{}_{}".format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run)
+        DIR = "results/{}_{}_{}/{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}".format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, t, pkt_t, run)
         # print(DIR)
         f_client = os.path.join(DIR, "latencies-{}.log".format(n * core))
         f_server = os.path.join(DIR, "latencies-{}-server.log".format(n * core))
@@ -467,14 +547,17 @@ def main():
         if breakdown:
             client_samples = get_samples(f_client, True)
             server_samples = get_samples(f_server, False)
-            mean_breakdown, p999_breakdown, p999_per_attribute, irq_per_run, total_per_run = get_latency_breakdown_e2e(client_samples, server_samples)
+            mean_breakdown, p999_breakdown, p999_per_attribute, irq_per_run, total_per_run, e2e_sample = get_latency_breakdown_e2e(client_samples, server_samples)
         # print(DIR)
             total_irq += irq_per_run
             total_run += total_per_run
-            print(p999_breakdown['client']['rx_sched'], p999_breakdown['server']['rx_sched'])
-
-        mean,l_999, thpt = get_latency_thpt_num(DIR)
-        mean_total += mean
+            # print(p999_breakdown['client']['rx_sched'], p999_breakdown['server']['rx_sched'])
+            dir_name = "breakdown/{}_{}_{}/our_mc_64_{}_1/{}".format(hd, our_patch, c_state, n, run)
+            generate_heatmap(dir_name, n, run, e2e_sample)
+            write_breakdown(dir_name, mean_breakdown, p999_breakdown, p999_per_attribute)
+        mean, l_99, l_999, thpt = get_latency_thpt_num(DIR)
+        mean_total.append(mean)
+        l99_total.append(l_99)
         l999_total.append(l_999)
         thpt_total += thpt
         cpu_file = "{}/{}".format(DIR, "cpu-server-{}.log".format(n * core))
@@ -503,8 +586,8 @@ def main():
         # print(p999_breakdown['client']['rx_sched'] / 1000.0, p999_breakdown['server']['rx_sched'] / 1000.0)
         if run == runs[len(runs) - 1]:
             if not breakdown and not rx_sched_only:
-                print(n, mean_total / len(runs), np.mean(l999_total), thpt_total / len(runs), 
-                    total_client_cpu / len(runs), total_server_cpu / len(runs), np.min(l999_total), np.max(l999_total))
+                print(n, np.mean(mean_total), np.mean(l999_total), thpt_total / len(runs), 
+                    total_client_cpu / len(runs), total_server_cpu / len(runs), np.min(mean_total), np.max(mean_total), np.min(l99_total), np.max(l99_total), np.min(l999_total), np.max(l999_total), )
             # print(n, irq_client_total / len(runs), irq_server_total / len(runs), 
             #     rx_sched_client_total / len(runs), rx_sched_server_total / len(runs))
             if breakdown:
@@ -512,7 +595,10 @@ def main():
                     print("{} {} {} {} {}".format(key.replace("_","\\\\\_"), mean_breakdown_c[key] / len(runs) , p999_breakdown_c[key] / len(runs), p999_per_attribute_c[key] /len(runs), 1))
                 for key in categories:
                     print("{} {} {} {} {}".format(key.replace("_","\\\\\_"), mean_breakdown_s[key] / len(runs), p999_breakdown_s[key] / len(runs), p999_per_attribute_s[key] /len(runs), 2))
-            mean_total = 0
+                dir_name = "breakdown/{}_{}_{}/our_mc_64_{}_1/".format(hd, our_patch, c_state, n)
+                write_breakdown_overall(dir_name, len(runs), mean_breakdown_c, mean_breakdown_c,  p999_breakdown_c, p999_breakdown_s,  p999_per_attribute_c, p999_per_attribute_s)
+            mean_total = []
+            l99_total = []
             l999_total = []
             thpt_total = 0
             total_client_cpu = 0

@@ -4,10 +4,12 @@ import subprocess
 from itertools import product
 
 # Define parameters
-hd="testing"
-our_patch=0
+hd="nsdi_new"
+our_patch="0"
 c_state=1
 num_apps = [32, 36, 40, 44, 48, 52, 56, 60, 64]
+#num_apps = [56]
+# need to run 8, 16
 # num_apps = [40, 44, 48, 52, 56]
 # num_apps =[84, 88]
 # 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
@@ -20,7 +22,7 @@ hrtick = [0]
 sched = [0]
 cores = [1]
 runs = [0, 1, 2, 3, 4]
-breakdown = True
+breakdown = False
 rx_sched_only = False
 # sys = "linux"
 
@@ -425,6 +427,20 @@ def calculate_difference(array1, array2):
     difference = [a - b for a, b in zip(array1, array2)]
     return difference
 
+def write_interrupt(dir_name, interrupt_client, interrupt_server):
+
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    # The path to the file where the config will be written
+    file_name = '{}/interrupt'.format(dir_name)
+
+    # Write the config data to the file
+    with open(file_name, 'w') as file:
+        file.write("{} {}\n".format("Client", interrupt_client))
+        file.write("{} {}\n".format("Server", interrupt_server))
+
+    file.close()
+
 def main():
     # Generate all combinations
     mean_total = 0
@@ -476,6 +492,8 @@ def main():
         int_server.sort(reverse = True)
         interrupt_client += (int_client[0] + int_client[1]) / 2
         interrupt_server += (int_server[0] + int_server[1]) / 2
+        dir_name = "breakdown/{}_{}_{}/our_mc_64_{}_1/{}".format(hd, our_patch, c_state, n, run)
+        write_interrupt(dir_name,  (int_client[0] + int_client[1]) / 2, (int_server[0] + int_server[1]) / 2)
         # mean_client, p999_client = get_latency_breakdown(f_client, True)
         # mean_server, p999_server = get_latency_breakdown(f_server, False)
         if breakdown:
@@ -514,6 +532,8 @@ def main():
             print(n, mean_total / len(runs), l999_total / len(runs), thpt_total / len(runs), interrupt_client /len(runs), interrupt_server / len(runs),
                 p999_per_attribute_c["rx_irq"] /len(runs), p999_per_attribute_c["rx_sched"] /len(runs),
                 p999_per_attribute_s["rx_irq"] /len(runs), p999_per_attribute_s["rx_sched"] /len(runs))
+            dir_name = "breakdown/{}_{}_{}/our_mc_64_{}_1/".format(hd, our_patch, c_state, n)
+            write_interrupt(dir_name,  interrupt_client /len(runs), interrupt_server / len(runs))
             # print(n, irq_client_total / len(runs), irq_server_total / len(runs), 
             #     rx_sched_client_total / len(runs), rx_sched_server_total / len(runs))
             # if breakdown:

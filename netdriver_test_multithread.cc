@@ -65,8 +65,8 @@
 int length = 1000000;
 
 /* How many iterations to perform for the test. */
-int count = 100;
-
+int thread_count = 100;
+std::atomic<int> connected_count;
 /* Used to generate "somewhat random but predictable" contents for buffers. */
 int seed = 12345;
 
@@ -215,6 +215,16 @@ double diff_timespec(const struct timespec *time1, const struct timespec *time0)
 
 void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size, int src_port)
 {
+	// std::unique_lock<std::mutex> lck(mtx);
+	// atomic_fetch_add(&connected_count, 1);
+	// if(atomic_load(&connected_count) == thread_count) {
+	// 	lck.unlock();
+	// 	cv.notify_all();
+	// }
+	// else {
+	// 	cv.wait(lck, []{ return atomic_load(&connected_count) == thread_count; });
+	// 	lck.unlock();
+	// }
 	std::queue<struct timespec> time_q;
 	char buffer[9000];
 	int fd, i = 0;
@@ -263,6 +273,8 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 
 		exit(1);
 	}
+
+
 	flag = 1;
 	// setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flag, sizeof(int));
 	flag = 0;
@@ -608,6 +620,7 @@ int main(int argc, char** argv)
 	int io_depth = 1;
 	int sc = 1;
 	stop_count = 0;
+	atomic_store(&connected_count, 0);
 	lfile.open("temp/latency.log");
     for (i = 0; i < MAX_HIST_VALUE; ++i) {
         time_hist[i].store(0);
@@ -654,7 +667,7 @@ int main(int argc, char** argv)
 				exit(1);
 			}
 			nextArg++;
-			count = get_int(argv[nextArg],
+			thread_count = get_int(argv[nextArg],
 					"Bad count %s; must be positive integer\n");
 		} else if (strcmp(argv[nextArg], "--length") == 0) {
 			if (nextArg == (argc-1)) {
@@ -741,8 +754,8 @@ int main(int argc, char** argv)
 	tempArg = nextArg;
 	/* assume having hyperthreading */
 	sc = 2 * sc;
-	threads_per_core = count / sc;
-	for(i = 0; i < count; i++) {
+	threads_per_core = thread_count / sc;
+	for(i = 0; i < thread_count; i++) {
 		nextArg = tempArg;
 		// memset(&addr_in, 0, sizeof(addr_in));
 		// addr_in.sin_family = AF_INET;
@@ -762,7 +775,7 @@ int main(int argc, char** argv)
 				if(pin == 1) {
 					cpu_set_t cpuset;
 					CPU_ZERO(&cpuset);
-					if(count == 1 || threads_per_core == 0) {
+					if(thread_count == 1 || threads_per_core == 0) {
 						if(sc == 2)
 							CPU_SET(cpu_list[0], &cpuset);
 						else {

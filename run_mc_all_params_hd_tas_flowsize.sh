@@ -2,7 +2,7 @@ iodepth=(1)
 num_apps=(128)
 irq_cores=(4)
 compute=(1)
-flowsize=(1024 2048 4096)
+flowsize=(128 256 512)
 
 # for f in "${flowsize[@]}"
 # do  

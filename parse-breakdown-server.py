@@ -95,7 +95,7 @@ for port, ss in samples.items():
             #'rx_napi': ts['rx_gro'] - ts['rx_napi'],
             'rx_irq': ts['rx_alloc'] - ts['rx_hw'],
             'rx_napi': ts['rx_gro'] - ts['rx_alloc'],
-#            'rx_gro': ts['rx_ip'] - ts['rx_gro'],
+            #'rx_gro': ts['rx_ip'] - ts['rx_gro'],
             'rx_ip': ts['rx_tcp'] - ts['rx_gro'],
             'rx_tcp': ts['rx_ready'] - ts['rx_tcp'],
             'rx_sched': ts['rx_data_copy'] - ts['rx_ready'],
@@ -142,12 +142,12 @@ for port, ls in latencies.items():
 for port, ts in tails.items():
     tail[port] = {}
     for k, v in ts.items():
-        # v.sort()
+        v.sort()
         tail[port][k] = (v)[round(0.99 * len(v)) - 1]
 for port, ts in tails.items():
     tail999[port] = {}
     for k, v in ts.items():
-       # v.sort()
+        v.sort()
         tail999[port][k] = (v)[round(0.999 * len(v)) - 1]
 
 # Print latency breakdown

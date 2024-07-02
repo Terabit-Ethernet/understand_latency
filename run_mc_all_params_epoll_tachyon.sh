@@ -5,13 +5,15 @@
 # flowsize=(64)
 
 iodepth=(1)
-num_apps=(128)
+num_apps=(16 32 64 128 256 512 1024 2048)
 flowsize=(64)
 dim=(1)
 pin=(1)
 tapp=(0)
 sched=(1)
-threads=(2)
+irq_cores=(3 4 5 6)
+threads=(16)
+hrtimer=0
 for d in "${dim[@]}"
 do  
     for p in "${pin[@]}"
@@ -20,45 +22,51 @@ do
         do
             for s in "${sched[@]}"
             do
-                for f in "${flowsize[@]}"
-                do  
-                    for i in "${iodepth[@]}"
-                    do
-                        for th in "${threads[@]}"
-                        do
-                            for k in "${num_apps[@]}"
-                            do
-                                ./linux-both-8c-compute-neper.sh $k temp/ $f $i $d $p $t $s $th
-                                mkdir temp/linux_epoll_"$f"_"$k"_"$i"_"$th"
-                                mv temp/*.log temp/linux_epoll_"$f"_"$k"_"$i"_"$th"
-                                echo "done"    
-                            done
-                        done
-                    done
-                done
-                mkdir temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"
-                cp -r temp/linux_epoll* temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"  && rm -rf temp/linux_epoll*
+                # for f in "${flowsize[@]}"
+                # do  
+                #     for i in "${iodepth[@]}"
+                #     do
+                #         for irq in "${irq_cores[@]}"
+                #         do
+                #             for th in "${threads[@]}"
+                #             do
+                #                 for k in "${num_apps[@]}"
+                #                 do
+                #                     ./ours-both-8c-compute-k2-neper.sh $k temp/ $f $i $irq $d $p $t $s $th $hrtimer
+                #                     mkdir temp/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer"
+                #                     mv temp/*.log temp/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer"
+                #                     echo "done"    
+                #                 done
+                #             done
+                #         done
+                #     done
+                # done
+                # mkdir temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"
+                # cp -r temp/our_epoll* temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s" && rm -rf temp/our_epoll*
                 for f in  "${flowsize[@]}"
                 do
                     for i in "${iodepth[@]}"
                     do
-                        for th in "${threads[@]}"
+                        for irq in "${irq_cores[@]}"
                         do
-                            for k in "${num_apps[@]}"
+                            for th in "${threads[@]}"
                             do
-                                mkdir results/our_epoll_"$f"_"$k"_"$i"_"$th"
-                                ./parse-neper.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/linux_epoll_"$f"_"$k"_"$i"_"$th" $k > results/our_epoll_"$f"_"$k"_"$i"_"$th"/arfs_latency &
-                                ./parse-breakdown-server.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/linux_epoll_"$f"_"$k"_"$i"_"$th" $k > results/our_epoll_"$f"_"$k"_"$i"_"$th"/arfs_latency_breakdown_s &
-                                ./parse-breakdown.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/linux_epoll_"$f"_"$k"_"$i"_"$th" $k >  results/our_epoll_"$f"_"$k"_"$i"_"$th"/arfs_latency_breakdown_c &
-                                # ./parse-cpu.py temp/our_epoll_"$f"_"$k"_"$i" $k $j > results/our_epoll_"$f"_"$k"_"$i"/arfs_cpu &
-                                ./parse-compute.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/linux_epoll_"$f"_"$k"_"$i"_"$th" 16 > results/our_epoll_"$f"_"$k"_"$i"_"$th"/arfs_compute &
+                                for k in "${num_apps[@]}"
+                                do
+                                    mkdir results/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer"
+                                    ./parse-neper.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer" $k > results/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer"/nrfs_latency &
+                                    ./parse-breakdown-server.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer" $k > results/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer"/nrfs_latency_breakdown_s &
+                                    ./parse-breakdown.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer" $k >  results/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer"/nrfs_latency_breakdown_c &
+                                    # ./parse-cpu.py temp/our_epoll_"$f"_"$k"_"$i" $k $j > results/our_epoll_"$f"_"$k"_"$i"/arfs_cpu &
+                                    ./parse-compute.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer" 16 > results/our_epoll_"$f"_"$k"_"$i"_"$th"_"$irq"_"$hrtimer"/nrfs_compute &
+                                done
                             done
                         done
                     done
                 done
                 wait $PIDS
                 mkdir results/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"
-                cp -r results/our_epoll* results/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s" && rm -rf results/our_epoll*
+                cp -r results/our_epoll* results/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"  && rm -rf results/our_epoll*
                 PIDS=""
             done
         done

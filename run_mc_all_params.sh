@@ -40,7 +40,8 @@ do
                             for k in "${num_apps[@]}"
                             do
                                 mkdir results/our_mc_"$f"_"$k"_"$i"_"$r"
-                                cp temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i"/latency.log  results/our_mc_"$f"_"$k"_"$i"_"$r"/latency.log
+                                # cp temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i"/latency.log  results/our_mc_"$f"_"$k"_"$i"_"$r"/latency.log
+				cp temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i"/*.log results/our_mc_"$f"_"$k"_"$i"_"$r"/
                                 ./parse-netperf.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k > results/our_mc_"$f"_"$k"_"$i"_"$r"/"$sys"_latency &
                                 # PIDS="$PIDS $!"
                                 ./parse-breakdown-server.py temp/dim_"$d"_pin_"$p"_tapp_"$t"_sched_"$s"/"$sys"_mc_"$f"_"$k"_"$i" $k > results/our_mc_"$f"_"$k"_"$i"_"$r"/"$sys"_latency_breakdown_s &

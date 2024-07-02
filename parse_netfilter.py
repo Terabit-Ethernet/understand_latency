@@ -4,20 +4,23 @@ import subprocess
 from itertools import product
 
 # Define parameters
-hd=1000
-our_patch=0
+hd="nsdi"
+our_patch="no_acc_irq_debug"
 c_state=1
-num_apps = [8]
+num_apps = [56]
+# need to run 8, 16
+# num_apps = [40, 44, 48, 52, 56]
+# num_apps =[84, 88]
+# 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
 flowsize = [64]
 iodepth = [1]
 dim = [1]
 pin = [1]
 permute = [2]
 hrtick = [0]
-sched = [100]
+sched = [0]
 cores = [1]
 runs = [0,1,2,3,4]
-breakdown = False
 
 # sys = "linux"
 
@@ -154,7 +157,7 @@ def main():
         print(DIR)
         thread_dict = get_e2e_log(DIR)
         netfilter_client, netfilter_server = netfilter_output(DIR)
-        for i in range(n):
+        for i in range(n * core):
             flow_log = os.path.join(DIR, "netperf-{}_thpt.log".format(i))
             with open(flow_log, "r") as file:
                 lines = file.readlines()

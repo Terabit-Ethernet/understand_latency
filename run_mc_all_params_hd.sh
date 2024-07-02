@@ -1,24 +1,25 @@
-iodepth=(1)
-num_apps=(1 2 4 8 16 32 64 128 256)
-irq_cores=(4)
+iodepth=(1 2 4 8 16 32 64 128 256)
+num_apps=(128 16 64)
+irq_cores=(5)
 compute=(1)
 flowsize=(64)
 
-for f in "${flowsize[@]}"
-do  
-    for i in "${iodepth[@]}"
-    do
-            for k in "${num_apps[@]}"
-            do
-                for l in "${compute[@]}"
-                do
-                    ./linux-both-8c-compute-hd.sh $k temp/ $f $i $l
-                    mkdir temp/linux_mc_"$f"_"$k"_"$i"_"$l"
-                    mv temp/*.log temp/linux_mc_"$f"_"$k"_"$i"_"$l"
-                done
-            done
-    done
-done
+# for f in "${flowsize[@]}"
+# do  
+#     for i in "${iodepth[@]}"
+#     do
+#             for k in "${num_apps[@]}"
+#             do
+#                 for l in "${compute[@]}"
+#                 do
+#                    ./linux-both-8c-compute-hd.sh $k temp/ $f $i $l
+#                     mkdir temp/linux_mc_"$f"_"$k"_"$i"_"$l"
+#                     mv temp/*.log temp/linux_mc_"$f"_"$k"_"$i"_"$l"
+#                	   echo "done"    
+#       		    done
+#             done
+#     done
+# done
 
 for f in "${flowsize[@]}"
 do  
@@ -39,28 +40,30 @@ do
     done
 done
 
-mkdir results
-for f in  "${flowsize[@]}"
-do
-    for i in "${iodepth[@]}"
-    do
-        for j in "${irq_cores[@]}"
-        do
-            for k in "${num_apps[@]}"
-            do
-                for l in "${compute[@]}"
-                do
-                    mkdir results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"
-                    ./parse-netperf.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_latency &
-                    ./parse-breakdown-server.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_latency_breakdown_s &
-                    ./parse-breakdown.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k >  results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_latency_breakdown_c &
-                    ./parse-cpu.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_cpu &
-                    ./parse-compute.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" 16 > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_compute &
-                done
-            done
-        done
-    done
-done
+# mkdir results
+# for f in  "${flowsize[@]}"
+# do
+#     for i in "${iodepth[@]}"
+#     do
+#         for j in "${irq_cores[@]}"
+#         do
+#             for k in "${num_apps[@]}"
+#             do
+#                 for l in "${compute[@]}"
+#                 do
+#                     mkdir results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"
+#                     ./parse-netperf.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_latency &
+#                     PIDS="$PIDS $!"
+#                     ./parse-breakdown-server.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_latency_breakdown_s &
+#                     ./parse-breakdown.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k >  results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_latency_breakdown_c &
+#                     ./parse-cpu.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" $k $j > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_cpu &
+#                     ./parse-compute.py temp/linux_mc_"$f"_"$k"_"$i"_"$l" 16 > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/arfs_compute &
+#                 done
+#             done
+#         done
+#     done
+# done
+# wait $PIDS
 
 for f in  "${flowsize[@]}"
 do
@@ -74,12 +77,14 @@ do
                 do
                     mkdir results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"
                     ./parse-netperf.py temp/our_mc_"$f"_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/nrfs_latency &
+                    PIDS="$PIDS $!"
                     ./parse-breakdown-server.py temp/our_mc_"$f"_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/nrfs_latency_breakdown_s &
                     ./parse-breakdown.py temp/our_mc_"$f"_"$k"_"$i"_"$j"_"$l" $k >  results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/nrfs_latency_breakdown_c &
-                    ./parse-cpu.py temp/our_mc_"$f"_"$k"_"$i"_"$j"_"$l" $k > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/nrfs_cpu &
+                    ./parse-cpu.py temp/our_mc_"$f"_"$k"_"$i"_"$j"_"$l" $k $j > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/nrfs_cpu &
                     ./parse-compute.py temp/our_mc_"$f"_"$k"_"$i"_"$j"_"$l" 16 > results/our_mc_"$f"_"$k"_"$i"_"$j"_"$l"/nrfs_compute &
                 done
             done
         done
     done
 done
+wait $PIDS

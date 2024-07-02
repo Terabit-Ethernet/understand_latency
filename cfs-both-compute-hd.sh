@@ -21,8 +21,9 @@ if [[ $N -gt 10 ]]; then LOG=100; fi
 #LOG=249
 sudo sysctl -w net.core.latency_breakdown_log=$LOG
 
-# TASKSET="0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60"
-TASKSET="0,4,32,36"
+#TASKSET="0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60"
+TASKSET="0,4,8,12,16,20,24,28"
+
 # server-side
 ssh jaehyun\@128.84.155.146 -t 'sudo trace-cmd clear'
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_on=1'
@@ -36,23 +37,23 @@ ssh jaehyun\@128.84.155.146 -t "sudo sysctl -w net.core.latency_breakdown_log=$L
 mkdir -p $DIR
 # for i in `seq 1 $N`; do
         #sudo taskset -c 0 nice -n -19 netperf -H 192.168.10.146 -t TCP_RR -l 100 -f g -j -p $DPORT -- -r $SIZE,$SIZE -o throughput,mean_latency,p99_latency,p999_latency &> $DIR/netperf-$i-$N.log&
-        ssh jaehyun\@128.84.155.146 -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip 192.168.10.125 --port $((DPORT))  --iodepth $IODEPTH --flowsize $SIZE > debug" &
+        ssh jaehyun\@128.84.155.146 -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip 192.168.10.125 --port $((DPORT)) --iodepth $IODEPTH --flowsize $SIZE " &
 # done
 
 sleep 3
 
 # for i in `seq 1 $N`; do
 	#sudo taskset -c 0 nice -n -19 netperf -H 192.168.10.146 -t TCP_RR -l 100 -f g -j -p $DPORT -- -r $SIZE,$SIZE -o throughput,mean_latency,p99_latency,p999_latency &> $DIR/netperf-$i-$N.log&
-	sudo taskset -c $TASKSET nice -n -20  ./netdriver_test_multithread 192.168.10.125:$DPORT --sp 10000 --count $N  --iodepth $IODEPTH --flowsize $SIZE tcpppasync &
+	sudo taskset -c $TASKSET nice -n -20  ./netdriver_test_multithread 192.168.10.125:$DPORT --sp 10000 --count $N --iodepth $IODEPTH --flowsize $SIZE  tcpppasync &
 	PIDS="$PIDS $!"
 	echo "pid $PIDS dport $DPORT"
 	#DPORT=$(($DPORT+1))
 # done
 
 # run compute app
-# ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET nice -n 19 ./compute_md 8" &
-# PIDS2="$PIDS2 $!"
-# echo "pid2 $PIDS2"
+ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET nice -n 19 ./compute_md 16" &
+PIDS2="$PIDS2 $!"
+echo "pid2 $PIDS2"
 
 sar -u 55 1 -P ALL > $DIR/cpu-$N.log &
 ssh jaehyun\@128.84.155.146 -t 'sar -u 55 1 -P ALL' > $DIR/cpu-server-$N.log &

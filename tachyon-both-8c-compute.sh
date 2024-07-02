@@ -1,9 +1,3 @@
-# Get the dir of this project
-DIR=$(realpath $(dirname $(readlink -f $0)))
-
-# Source the environment file
-source $DIR/env.sh
-
 if [[ $# < 3 ]]; then
     echo "usage: netperf.sh NUM_APPS DIR SIZE"
     exit 1
@@ -25,13 +19,11 @@ DPORT=5001
 # client-side
 sudo trace-cmd clear
 sudo sysctl -w net.core.latency_breakdown_on=1
-sudo sysctl -w net.core.latency_rx_sched_lat_only=1
-sudo sysctl -w net.core.latency_breakdown_nrfs=0
+sudo sysctl -w net.core.latency_breakdown_nrfs=4
 echo 24000000 | sudo tee /proc/sys/kernel/sched_latency_ns
 echo 3000000 | sudo tee /proc/sys/kernel/sched_min_granularity_ns
 echo NO_HRTICK | sudo tee /sys/kernel/debug/sched_features
 echo 1 | sudo tee /sys/kernel/debug/tracing/tracing_on
-echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting
 LOG=$((997 / N))
 if [[ $N -gt 10 ]]; then LOG=100; fi
 #LOG=249
@@ -40,29 +32,25 @@ sudo sysctl -w net.core.latency_breakdown_log=$LOG
 # server-side
 ssh jaehyun\@128.84.155.146 -t 'sudo trace-cmd clear'
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_on=1'
-ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_rx_sched_lat_only=1'
-ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_nrfs=0'
+ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_nrfs=4'
 ssh jaehyun\@128.84.155.146 -t 'echo 24000000 | sudo tee /proc/sys/kernel/sched_latency_ns'
 ssh jaehyun\@128.84.155.146 -t 'echo 3000000 | sudo tee /proc/sys/kernel/sched_min_granularity_ns'
 ssh jaehyun\@128.84.155.146 -t 'echo NO_HRTICK | sudo tee /sys/kernel/debug/sched_features'
 ssh jaehyun\@128.84.155.146 -t 'echo 1 | sudo tee /sys/kernel/debug/tracing/tracing_on'
 ssh jaehyun\@128.84.155.146 -t "sudo sysctl -w net.core.latency_breakdown_log=$LOG"
-ssh jaehyun\@128.84.155.146 -t "echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
 
-TASKSET="0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60"
-#TASKSET="0,4,8,12,16,20,24,28"
+#TASKSET="0,4,8,12,16,20,24,28,32,36,40,44,48,52,56,60"
+TASKSET="0,32"
 mkdir -p $DIR
 
 if [[ $DIM -eq 1 ]]
 then
 	echo "enable dim"
-	ssh jaehyun\@128.84.155.146 -t 'sudo ethtool -C $INTF adaptive-rx on adaptive-tx on'
-	sudo ethtool -C $INTF adaptive-rx on adaptive-tx on
+	ssh jaehyun\@128.84.155.146 -t 'sudo ethtool -C ens2f0np0 adaptive-rx on adaptive-tx on'
+	sudo ethtool -C ens2f0np0 adaptive-rx on adaptive-tx on
 else
-	ssh jaehyun\@128.84.155.146 -t 'sudo ethtool -C $INTF adaptive-rx off adaptive-tx off'
-	ssh jaehyun\@128.84.155.146 -t 'sudo ethtool -C $INTF rx-frames 28 rx-usecs 50'
-	sudo ethtool -C $INTF adaptive-rx off adaptive-tx off
-	sudo ethtool -C $INTF rx-frames 28 rx-usecs 50
+	ssh jaehyun\@128.84.155.146 -t 'sudo ethtool -C ens2f0np0 adaptive-rx off adaptive-tx off'
+	sudo ethtool -C ens2f0np0 adaptive-rx off adaptive-tx off
 fi
 
 if [[ $PIN -eq 1 ]]
@@ -77,9 +65,9 @@ then
 	echo "pid $PIDS dport $DPORT"
 else
 	echo "no pin"
-    ssh jaehyun\@128.84.155.146 -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip 192.168.10.125 --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE > /home/jaehyun/server.log" &
+    ssh jaehyun\@128.84.155.146 -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip 192.168.10.125 --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE > debug" &
 	sleep 3
-	sudo taskset -c $TASKSET nice -n -20  ./netdriver_test_multithread 192.168.10.125:$DPORT --count $N  --iodepth $IODEPTH --flowsize $SIZE tcpppasync  > temp/client.log&
+	sudo taskset -c $TASKSET nice -n -20  ./netdriver_test_multithread 192.168.10.125:$DPORT --count $N  --iodepth $IODEPTH --flowsize $SIZE tcpppasync &
 	PIDS="$PIDS $!"
 	echo "pid $PIDS dport $DPORT"
 fi
@@ -104,12 +92,12 @@ then
 	if [[ $TAPPSCHED -eq 1 ]]
 	then
 		echo "sched idle"		
-		ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET nice -n 0 ./compute_md 16 $TAPPSCHED" &
+		ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET nice -n 0 ./compute_md 2 $TAPPSCHED" &
 		PIDS2="$PIDS2 $!"
 		echo "pid2 $PIDS2"
 	else
 		echo "sched normal"		
-		ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET nice -n 19 ./compute_md 16 $TAPPSCHED" &
+		ssh jaehyun\@128.84.155.146 -t "cd /home/qizhe/latency; sudo taskset -c $TASKSET nice -n 19 ./compute_md 2 $TAPPSCHED" &
 		PIDS2="$PIDS2 $!"
 		echo "pid2 $PIDS2"
 	fi
@@ -130,18 +118,14 @@ ssh jaehyun\@128.84.155.146 -t 'sudo rm -rf /home/qizhe/latency/temp/compute*.lo
 
 PIDS2="$!"
 # client-side
-echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
 sudo sysctl -w net.core.latency_breakdown_on=0
-sudo sysctl -w net.core.latency_rx_sched_lat_only=0
 sudo sysctl -w net.core.latency_breakdown_nrfs=0
 sudo cat /sys/kernel/debug/tracing/trace &> $DIR/latencies-$N.log
 sudo trace-cmd clear
 
 # server-side
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_on=0'
-ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_rx_sched_lat_only=0'
 ssh jaehyun\@128.84.155.146 -t 'sudo sysctl -w net.core.latency_breakdown_nrfs=0'
 ssh jaehyun\@128.84.155.146 -t 'sudo cat /sys/kernel/debug/tracing/trace' > $DIR/latencies-$N-server.log
 ssh jaehyun\@128.84.155.146 -t 'sudo trace-cmd clear'
 ssh jaehyun\@128.84.155.146 -t 'sudo killall pingpong_server'
-ssh jaehyun\@128.84.155.146 -t "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"

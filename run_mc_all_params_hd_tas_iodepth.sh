@@ -1,4 +1,4 @@
-iodepth=(8)
+iodepth=(1 2 4 8)
 num_apps=(128)
 irq_cores=(4)
 compute=(1)

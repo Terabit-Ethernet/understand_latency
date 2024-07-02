@@ -33,3 +33,7 @@ sudo phc2sys -s CLOCK_REALTIME -c $INTF -O 0 &
 
 # change the open file limit
 ulimit -n 8192
+sudo -s
+#echo 451200 > /sys/kernel/debug/tracing/buffer_size_kb
+#sleep 10
+exit

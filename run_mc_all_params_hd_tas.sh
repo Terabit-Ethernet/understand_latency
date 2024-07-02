@@ -1,5 +1,5 @@
 iodepth=(1)
-num_apps=(1 2 4 8 16 32 64 128 256)
+num_apps=(128)
 irq_cores=(4)
 compute=(1)
 flowsize=(64)

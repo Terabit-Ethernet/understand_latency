@@ -139,12 +139,12 @@ for port, ts in tails.items():
     tail[port] = {}
     for k, v in ts.items():
         # print (port, len(v), k, round(0.99 * len(v)) - 1)
-        # v.sort()
+        v.sort()
         tail[port][k] = (v)[round(0.99 * len(v)) - 1]
 for port, ts in tails.items():
     tail999[port] = {}
     for k, v in ts.items():
-        # v.sort()
+        v.sort()
         tail999[port][k] = (v)[round(0.999 * len(v)) - 1]
 # Print latency breakdown
 categories = ['rx_irq', 'rx_napi' , 'rx_ip', 'rx_tcp', 'rx_sched', 'rx_data_copy', 'app', 'tx_data_copy', 'tx_tcp', 'tx_ip', 'tx_queue', 'tx_xmit', 'full']
