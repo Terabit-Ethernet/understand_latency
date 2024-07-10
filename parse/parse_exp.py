@@ -6,25 +6,25 @@ from itertools import product
 import matplotlib.pyplot as plt
 import seaborn as sns
 # Define parameters
-hd="test_perf_dim_disable"
+hd="1"
 our_patch="1"
 c_state=1
-num_apps = [56]
+num_apps = [1, 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56]
 # need to run 8, 16
 # num_apps = [40, 44, 48, 52, 56]
 # num_apps =[84, 88]
 # 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
 flowsize = [64]
 iodepth = [1]
-dim = [0]
+dim = [1]
 pin = [1]
-permute = [1]
+permute = [2]
 hrtick = [0]
-sched = [100]
+sched = [0]
 cores = [1]
-runs = [12, 13, 14]
-timeout = [90]
-pkt_threshold = [28]
+runs = [0, 1, 2, 3, 4]
+#timeout = [90]
+#pkt_threshold = [28]
 breakdown = False
 rx_sched_only = False
 # sys = "linux"
@@ -514,7 +514,8 @@ def main():
     irq_server_total = 0
     rx_sched_client_total = 0
     rx_sched_server_total = 0
-    combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, timeout, pkt_threshold, runs)
+    # combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, timeout, pkt_threshold, runs)
+    combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, runs)
     mean_breakdown_c = {}
     mean_breakdown_s = {}
     p999_breakdown_c = {}

@@ -206,21 +206,21 @@ ssh $USER\@$TARGETC -t "sudo rmmod iter_thread" &
 
 
 sudo mv temp/*.log $DIR/
-./parse-netperf.py $DIR $N > $DIR/linux_latency
+./parse/parse-netperf.py $DIR $N > $DIR/linux_latency
 if [[ $IODEPTH -eq 1 ]];
 then
-	./parse-breakdown-server.py $DIR $N > $DIR/linux_latency_breakdown_s
-	./parse-breakdown.py $DIR $N >  $DIR/linux_latency_breakdown_c 
+	./parse/parse-breakdown-server.py $DIR $N > $DIR/linux_latency_breakdown_s
+	./parse/parse-breakdown.py $DIR $N >  $DIR/linux_latency_breakdown_c 
 else
-	./parse-breakdown-rx_sched_c.py $DIR $N > $DIR/linux_latency_breakdown_rx_sched_c 
-	./parse-breakdown-rx_sched_s.py $DIR $N > $DIR/linux_latency_breakdown_rx_sched_s
+	./parse/parse-breakdown-rx_sched_c.py $DIR $N > $DIR/linux_latency_breakdown_rx_sched_c 
+	./parse/parse-breakdown-rx_sched_s.py $DIR $N > $DIR/linux_latency_breakdown_rx_sched_s
 fi
 
 cat /proc/interrupts > $DIR/interrupt_after
 ssh $USER\@$TARGETC -t "cat /proc/interrupts" > $DIR/interrupt_after_server &
 # PIDS="$PIDS $!"
-# ./parse-breakdown-server.py $DIR $N > $DIR/linux_latency_breakdown_s
-# ./parse-breakdown.py $DIR $N >  $DIR/linux_latency_breakdown_c 
-# python3 parse_vruntime.py $DIR/client_perf.log $((N/SC)) > $DIR/runtime_diff
-# python3 parse_vruntime.py $DIR/server_perf.log $((N/SC)) > $DIR/runtime_diff_server
+# ./parse/parse-breakdown-server.py $DIR $N > $DIR/linux_latency_breakdown_s
+# ./parse/parse-breakdown.py $DIR $N >  $DIR/linux_latency_breakdown_c 
+# python3 parse/parse_vruntime.py $DIR/client_perf.log $((N/SC)) > $DIR/runtime_diff
+# python3 parse/parse_vruntime.py $DIR/server_perf.log $((N/SC)) > $DIR/runtime_diff_server
 echo "done"  
