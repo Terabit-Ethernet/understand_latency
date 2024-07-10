@@ -1,0 +1,20 @@
+### Scripts for TAS (From 2022)
+
+  Running TAS (linux 5.4),
+  ```
+  sudo ./run_mc_all_params_hd_tas.sh
+  ```
+  TAS performance is not very stable, we pick the best possible performance.
+  
+2. IO Depth,
+
+```
+sudo ./run_mc_all_params_tas_iodepth.sh
+```
+
+3. Flow Size,
+
+
+```
+sudo ./run_mc_all_params_tas_flowsize.sh
+```
