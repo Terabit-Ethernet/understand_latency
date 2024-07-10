@@ -29,7 +29,7 @@ else
   PKT=${13}
 fi
 DIR=$(realpath $(dirname $(readlink -f $0)))
-source $DIR/../env.sh
+source $DIR/env.sh
 
 echo "$TIMEOUT"
 echo "$PKT"

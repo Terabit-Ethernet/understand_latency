@@ -30,6 +30,7 @@ sudo phc2sys -s CLOCK_REALTIME -c $INTF -O 0 &
 # phc2sys -a -r
 # comppile compute app
 #g++ -pthread compute_md.cpp -o compute
-
+sudo -s
+echo 451200 > /sys/kernel/debug/tracing/buffer_size_kb
 # change the num of open files
 ulimit -n 8192
