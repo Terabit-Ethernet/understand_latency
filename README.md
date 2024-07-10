@@ -63,34 +63,10 @@ sudo sysctl -w net.core.latency_rx_sched_lat_only=0
 ```
 
 
-### Old scripts (Ignore for now)
-  ```
-  sudo ./run_mc_all_params.sh 
-  ```
-  Running TAS (linux 5.4),
-  ```
-  sudo ./run_mc_all_params_hd_tas.sh
-  ```
-  TAS performance is not very stable, we pick the best possible performance.
-  
-2. IO Depth,
-
-```
-sudo ./run_mc_all_params_iodepth.sh
-```
-
-```
-sudo ./run_mc_all_params_tas_iodepth.sh
-```
-
-3. Flow Size,
-```
-run_mc_all_params_flowsize.sh
-```
-
-```
-sudo ./run_mc_all_params_tas_flowsize.sh
-```
-
 ## Note
-1. trace_printk will discard some output for the latency breakdown. https://stackoverflow.com/questions/57141796/how-to-print-full-trace-file-of-trace-printk-in-ftrace
+1. trace_printk will discard some output for the latency breakdown. https://stackoverflow.com/questions/57141796/how-to-print-full-trace-file-of-trace-printk-in-ftrace. To solve this, we need to increase buffer_size_skb:
+   ```
+   sudo -s
+   echo $LARGE_SIZE > buffer_size_kb
+   ```
+
