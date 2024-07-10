@@ -1,8 +1,8 @@
 # Understanding Host Network Stack Latency
 
 ## Setup
-1. Install the Linux kernel in this [repo](https://github.com/Terabit-Ethernet/linux-latency).
-2. Run the setup script in both servers. 
+1. Install the Linux kernel in this [repo](https://github.com/Terabit-Ethernet/linux-latency). Before installing, changing the kernel configuration file to enable IRQ_TIME_ACCOUNTING.
+3. Run the setup script in both servers. 
   host side: 
   ```
   `./host_setup.sh
