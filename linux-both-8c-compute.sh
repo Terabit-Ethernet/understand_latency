@@ -90,15 +90,15 @@ ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_log=$LOG"
 ssh $USER\@$TARGETC -t "echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
 
 # enable netfilter 
-# sudo insmod /home/qizhe/netfilter/filter.ko
-# ssh $USER\@$TARGETC -t "sudo insmod /home/qizhe/netfilter/filter.ko"
+# sudo insmod $TARGETDIR/netfilter/filter.ko
+# ssh $USER\@$TARGETC -t "sudo insmod $TARGETDIR/netfilter/filter.ko"
 # echo 1 | sudo tee /sys/module/filter/parameters/enable_filter
 # ssh $USER\@$TARGETC -t "echo 1 | sudo tee /sys/module/filter/parameters/enable_filter"
 
 
 # packet distribution
-# sudo insmod /home/qizhe/pkt_dist/filter.ko
-# ssh $USER\@$TARGETC -t "sudo insmod /home/qizhe/pkt_dist/filter.ko"
+# sudo insmod $TARGETDIR/pkt_dist/filter.ko
+# ssh $USER\@$TARGETC -t "sudo insmod $TARGETDIR/pkt_dist/filter.ko"
 # echo 1 | sudo tee /sys/module/filter/parameters/enable_filter
 # ssh $USER\@$TARGETC -t "echo 1 | sudo tee /sys/module/filter/parameters/enable_filter"
 
@@ -115,13 +115,13 @@ mkdir -p $DIR
 cat /proc/interrupts > $DIR/interrupt_before
 ssh $USER\@$TARGETC -t "cat /proc/interrupts" > $DIR/interrupt_before_server &
 
-sudo insmod /home/qizhe/iter_thread/iter_thread.ko &
-ssh $USER\@$TARGETC -t "sudo insmod /home/qizhe/iter_thread/iter_thread.ko" &
+sudo insmod $TARGETDIR/iter_thread/iter_thread.ko &
+ssh $USER\@$TARGETC -t "sudo insmod $TARGETDIR/iter_thread/iter_thread.ko" &
 
-# ssh $USER\@$TARGETC -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip $TARGET --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE --pin > /home/$USER/server.log" &
-ssh $USER\@$TARGETC -t "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip $TARGET --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE --pin $PIN --permute $PERMUTE $PERM --sc $SC > /home/$USER/server.log" &
+# ssh $USER\@$TARGETC -t "sudo taskset -c $TASKSET nice -n -20 $TARGETDIR/latency/pingpong_server  --ip $TARGET --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE --pin > /home/$USER/server.log" &
+ssh $USER\@$TARGETC -t "sudo taskset -c $TASKSET nice -n -20 $TARGETDIR/latency/pingpong_server  --ip $TARGET --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE --pin $PIN --permute $PERMUTE $PERM --sc $SC > /home/$USER/server.log" &
 sleep 3
-echo "sudo taskset -c $TASKSET nice -n -20 /home/qizhe/latency/pingpong_server  --ip $TARGET --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE --pin $PIN  > /home/qizhe/latency/temp/server.log"
+echo "sudo taskset -c $TASKSET nice -n -20 $TARGETDIR/latency/pingpong_server  --ip $TARGET --port $((DPORT)) --count $N --iodepth $IODEPTH --flowsize $SIZE --pin $PIN  > $TARGETDIR/latency/temp/server.log"
 sudo taskset -c $TASKSET nice -n -20  ./netdriver_test_multithread $TARGET:$DPORT --count $N  --iodepth $IODEPTH --flowsize $SIZE --pin $PIN --sc $SC tcpppasync  > temp/client.log &
 echo "sudo taskset -c $TASKSET nice -n -20  ./netdriver_test_multithread $TARGET:$DPORT --count $N  --iodepth $IODEPTH --flowsize $SIZE --pin $PIN --sc $SC tcpppasync"
 PIDS="$PIDS $!"
@@ -134,7 +134,7 @@ ssh $USER\@$TARGETC -t "sar -u 55 1 -P ALL" > $DIR/cpu-server-$N.log &
 
 # sleep 60
 # only do server perf only
-# ssh $USER\@$TARGETC -t "sudo /home/qizhe/perf sched record -C 0 -k CLOCK_MONOTONIC -- sleep 10 > perf.log; sudo /home/qizhe/perf sched script > server_perf.log &" &
+# ssh $USER\@$TARGETC -t "sudo $TARGETDIR/perf sched record -C 0 -k CLOCK_MONOTONIC -- sleep 10 > perf.log; sudo $TARGETDIR/perf sched script > server_perf.log &" &
 
 # sudo ../perf sched record -C 0 -k CLOCK_MONOTONIC -- sleep 30
 # sudo ../perf sched script > temp/client_perf.log
@@ -142,12 +142,12 @@ ssh $USER\@$TARGETC -t "sar -u 55 1 -P ALL" > $DIR/cpu-server-$N.log &
 
 # queue size
 # sleep 30
-# sudo insmod /home/qizhe/iter_sock/iterate_inet_socks.ko
-# ssh $USER\@$TARGETC -t "sudo insmod /home/qizhe/iter_sock/iterate_inet_socks.ko"
+# sudo insmod $TARGETDIR/iter_sock/iterate_inet_socks.ko
+# ssh $USER\@$TARGETC -t "sudo insmod $TARGETDIR/iter_sock/iterate_inet_socks.ko"
 # get perf
 # sleep 60
 # only do server perf only
-# ssh $USER\@$TARGETC -t "sudo /home/qizhe/perf sched record -C 0 -k CLOCK_MONOTONIC -- sleep 30 > perf.log; sudo /home/qizhe/perf sched script > server_perf.log &" &
+# ssh $USER\@$TARGETC -t "sudo $TARGETDIR/perf sched record -C 0 -k CLOCK_MONOTONIC -- sleep 30 > perf.log; sudo $TARGETDIR/perf sched script > server_perf.log &" &
 # sudo ../perf sched record -C 0 -k CLOCK_MONOTONIC -- sleep 30
 # sudo ../perf sched script > temp/client_perf.log
 
@@ -159,9 +159,9 @@ kill -9 $PIDS2
 
 # get compute log
 ssh $USER\@$TARGETC -t "sudo killall compute_md"
-scp -r $USER\@$TARGETC:/home/qizhe/latency/temp/compute*.log temp/
+scp -r $USER\@$TARGETC:$TARGETDIR/latency/temp/compute*.log temp/
 scp -r $USER\@$TARGETC:/home/$USER/server.log temp/
-ssh $USER\@$TARGETC -t "sudo rm -rf /home/qizhe/latency/temp/compute*.log"
+ssh $USER\@$TARGETC -t "sudo rm -rf $TARGETDIR/latency/temp/compute*.log"
 
 PIDS2="$!"
 # client-side
