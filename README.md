@@ -52,7 +52,7 @@ $TARGETDIR/
 All experiments will be run using  `run_exp.py`. And results are stored in `results/`.
 
 #### Single core:
-1. Running single core, single IO depth with the number of threads results:
+1. Single core, single IO depth with the number of threads:
 In run_exp.y, first change the setup inside run_exp.py:
 
 ```
@@ -85,7 +85,7 @@ sudo -s
 python3 run_exp.py
 ```
 
-2. Similarly to run single core, fix number of threads and increasing number of IO depths:
+2.  Single core, fix number of threads and increasing number of IO depths:
 In run_exp.py, first change the setup:
 ```
 hd="1"
@@ -124,7 +124,7 @@ python3 run_exp.py
 
 #### Multiple cores:
 
-1. Running single core, single IO depth with the number of threads results:
+1. Single core, single IO depth with the number of threads:
 In run_exp.y, first change the setup inside run_exp.py (changing the number of cores from 1 to 8; the core specifies the physical core):
 
 ```
@@ -157,7 +157,7 @@ sudo -s
 python3 run_exp.py
 ```
 
-2. Similarly to run single core, fix number of threads and increasing number of IO depths:
+2.  Single core, fix number of threads and increasing number of IO depths:
 In run_exp.py, first change the setup:
 ```
 hd="1"
@@ -195,6 +195,105 @@ python3 run_exp.py
 ```
 
 
+## Parsing results
+
+1. Get latency and throughput number using `parse/parse_exp.py`:
+
+First, change the setup script, matching to the `run_exp.py`:
+
+```
+hd="1"
+our_patch="1"
+c_state=1
+num_apps = [1, 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56]
+# need to run 8, 16
+# num_apps = [40, 44, 48, 52, 56]
+# num_apps =[84, 88]
+# 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
+flowsize = [64]
+iodepth = [1]
+dim = [1]
+pin = [1]
+permute = [2]
+hrtick = [0]
+sched = [0]
+cores = [1]
+runs = [0, 1, 2, 3, 4]
+# Testing DIM disabled parameters
+# timeout = [90]
+# pkt_threshold = [28]
+breakdown = False
+```
+Then run:
+```
+python3 parse/parse_exp.py
+```
+
+2. Get Latency breakdown (only if IO depth = 1) using `parse/parse_exp.py`:
+
+ Change the setup script, matching to the `run_exp.py` and also set `breakdown = True`:
+
+```
+hd="1"
+our_patch="1"
+c_state=1
+num_apps = [1, 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56]
+# need to run 8, 16
+# num_apps = [40, 44, 48, 52, 56]
+# num_apps =[84, 88]
+# 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
+flowsize = [64]
+iodepth = [1]
+dim = [1]
+pin = [1]
+permute = [2]
+hrtick = [0]
+sched = [0]
+cores = [1]
+runs = [0, 1, 2, 3, 4]
+# Testing DIM disabled parameters
+# timeout = [90]
+# pkt_threshold = [28]
+breakdown = True
+```
+Then run:
+```
+python3 parse/parse_exp.py
+```
+3. Get virtual runtime results per thread over the time using `parse/parse_perthread_new.py` (only if we enable iter_thread module when running experiment):
+
+ Change the setup script, matching to the `run_exp.py` in `parse/parse_perthread_new.py`:
+
+```
+hd="1"
+our_patch="1"
+c_state=1
+num_apps = [1, 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56]
+# need to run 8, 16
+# num_apps = [40, 44, 48, 52, 56]
+# num_apps =[84, 88]
+# 2, 4, 8, 16, 32, 36, 40, 44, 48, 52, 56, 60, 64, 68, 72, 76, 80
+flowsize = [64]
+iodepth = [1]
+dim = [1]
+pin = [1]
+permute = [2]
+hrtick = [0]
+sched = [0]
+cores = [1]
+runs = [0, 1, 2, 3, 4]
+# Testing DIM disabled parameters
+# timeout = [90]
+# pkt_threshold = [28]
+breakdown = True
+```   
+Then run:
+
+```
+python3 parse/parse_perthread_new.py
+```
+
+Results are saved in `latency/outputs` directory.
 ## Note
 
 ### For increasing IO-depth experiments we can only  track rx_sched rather than other breakdown values:
