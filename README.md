@@ -9,7 +9,7 @@ We have used the follwing hardware and software configurations for running the e
 * CPU: 4-Socket Intel Xeon Gold 6234 3.3 GHz with 8 cores per socket (with hyperthreading enabled)
 * RAM: 384 GB
 * NIC: Mellanox ConnectX-5 Ex VPI (100 Gbps)
-* OS: Ubuntu 20.04 with Linux 6.0.3 (patched)
+* OS: Ubuntu 20.04 with Linux 5.10.46
 
 To run experiments, the client will initiate scripts to run programs on both the client and server. The parameters, including HOST (client) IP address, TARGET (server) IP address, and interface names, need to be set properly in `kernel_impl/env.sh`:
 ```
@@ -31,7 +31,16 @@ TARGETC=128.84.155.146
   ```
   ./target_setup.sh
   ```
+3. Install kernel modules [iter_thread](https://github.com/Terabit-Ethernet/iter_thread) outside this repo.
+4. The structure of directories should look like:
 
+```
+$TARGETDIR/
+├── latency/                   # Latency directory
+│   ├── ...
+├── iter_thread/                    # iter_thread module
+
+```
 ## Running experiments
 
 #### Single core:
