@@ -1,7 +1,10 @@
 #!/bin/bash
 HOST=192.168.11.124
 TARGET=192.168.11.125
-INTF=ens2f1np1
+INTF=ens2f1
+USER=jaehyun
+TARGETDIR=/home/qizhe/
+TARGETC=128.84.155.146
 NVME_TCP_DEV=/dev/nvme1n1
 I10_DEV=/dev/nvme2n1
 NUM_CPUS=32
