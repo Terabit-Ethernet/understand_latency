@@ -2,7 +2,26 @@
 
 ## Setup
 1. Install the Linux kernel in this [repo](https://github.com/Terabit-Ethernet/linux-latency). Before installing, changing the kernel configuration file to enable IRQ_TIME_ACCOUNTING.
-3. Run the setup script in both servers. 
+
+2. Hardware/Software Configuration:
+We have used the follwing hardware and software configurations for running the experiments.
+
+* CPU: 4-Socket Intel Xeon Gold 6234 3.3 GHz with 8 cores per socket (with hyperthreading enabled)
+* RAM: 384 GB
+* NIC: Mellanox ConnectX-5 Ex VPI (100 Gbps)
+* OS: Ubuntu 20.04 with Linux 6.0.3 (patched)
+
+To run experiments, the client will initiate scripts to run programs on both the client and server. The parameters, including HOST (client) IP address, TARGET (server) IP address, and interface names, need to be set properly in `kernel_impl/env.sh`:
+```
+HOST=192.168.11.124
+TARGET=192.168.11.125
+INTF=ens2f1
+USER=qizhe
+TARGETDIR=/home/qizhe/
+TARGETC=128.84.155.146
+```
+
+2. Run the setup script in both servers. 
   host side: 
   ```
   `./host_setup.sh
@@ -12,7 +31,6 @@
   ```
   ./target_setup.sh
   ```
-  You might need to change HOST and TARGET IP address in the `env.sh`
 
 ## Running experiments
 
