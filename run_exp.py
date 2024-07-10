@@ -20,8 +20,9 @@ hrtick = [0]
 sched = [100]
 cores = [1]
 runs = [12, 13, 14]
-timeout = [90]
-pkt_threshold = [28]
+# Testing DIM disabled parameters
+# timeout = [90]
+# pkt_threshold = [28]
 breakdown = False
 
 # sys = "linux"
@@ -44,25 +45,29 @@ timeout = {}
 pkt_t = {}
 runs = {}
 """
-
-def wrtie_to_config(DIR, hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, timeout, pkt_t, run):
+# def wrtie_to_config(DIR, hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, timeout, pkt_t, run):
+def wrtie_to_config(DIR, hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run):
 
     # The path to the file where the config will be written
     config_file_path = '{}/config.txt'.format(DIR)
 
     # Write the config data to the file
     with open(config_file_path, 'w') as file:
-        file.write(config_data.format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, timeout, pkt_t, run))
+        file.write(config_data.format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run))
 
 def main():
     # Generate all combinations
-    combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, runs, timeout, pkt_threshold)
-    for n, f, i, d, p, perm, h, s, core, run, t, pkt_t in combinations:
+    # combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, runs, timeout, pkt_threshold)
+    combinations = product(num_apps, flowsize, iodepth, dim, pin, permute, hrtick, sched, cores, runs)
+    # for n, f, i, d, p, perm, h, s, core, run, t, pkt_t in combinations:
+    for n, f, i, d, p, perm, h, s, core, run in combinations:
         # Execute the main script
-        DIR = "results/{}_{}_{}/{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}".format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, t, pkt_t, run)
+        # DIR = "results/{}_{}_{}/{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}".format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, t, pkt_t, run)
+        DIR = "results/{}_{}_{}/{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}".format(hd, our_patch, c_state, n, f, i, d, p, perm, h, s, core, run)
         os.makedirs(DIR, exist_ok=True)
-        wrtie_to_config(DIR, hd, our_patch, c_state, n * core, f, i, d, p, perm, h, s, core, t, pkt_t, run)
-        command = f"./linux-both-8c-compute.sh {n * core} {DIR} {f} {i} {d} {p} {perm} {h} {s} {core} {run} {t} {pkt_t}"
+        wrtie_to_config(DIR, hd, our_patch, c_state, n * core, f, i, d, p, perm, h, s, core, run)
+        # command = f"./linux-both-8c-compute.sh {n * core} {DIR} {f} {i} {d} {p} {perm} {h} {s} {core} {run} {t} {pkt_t}"
+        command = f"./linux-both-8c-compute.sh {n * core} {DIR} {f} {i} {d} {p} {perm} {h} {s} {core} {run}"
         print(command)
         subprocess.run(command, shell=True)
         # get latency breakdown 
