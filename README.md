@@ -1,8 +1,7 @@
 # Understanding Host Network Stack Latency
 
 ## Setup
-1. Install the Linux kernel in this [repo](https://github.com/Terabit-Ethernet/linux-latency). Before installing, changing the kernel configuration file to enable IRQ_TIME_ACCOUNTING.
-
+1. Follow the instruction in this [repo](https://github.com/Terabit-Ethernet/linux-latency) to install the kernel on both servers.
 2. Hardware/Software Configuration:
 We have used the follwing hardware and software configurations for running the experiments.
 
@@ -21,7 +20,7 @@ TARGETDIR=/home/qizhe/
 TARGETC=128.84.155.146
 ```
 
-2. Run the setup script in both servers. 
+3. Run the setup script in both servers. 
   host side: 
   ```
   `./host_setup.sh
@@ -31,9 +30,9 @@ TARGETC=128.84.155.146
   ```
   ./target_setup.sh
   ```
-3. Install kernel modules [iter_thread](https://github.com/Terabit-Ethernet/iter_thread) outside this repo.
-4. Install kernel modules [pkt dist](https://github.com/Terabit-Ethernet/pkt_dist/tree/main) outside this repo.
-5. The structure of directories should look like:
+4. Install kernel modules [iter_thread](https://github.com/Terabit-Ethernet/iter_thread) outside this repo.
+5. Install kernel modules [pkt dist](https://github.com/Terabit-Ethernet/pkt_dist/tree/main) outside this repo.
+6. The structure of directories should look like:
 
 ```
 $TARGETDIR/
@@ -42,7 +41,7 @@ $TARGETDIR/
 ├── iter_thread/                    # iter_thread module
 ├── pkt_dist/                    # pkt_dist module
 ```
-5. Note: trace_printk will discard some output for the latency breakdown. https://stackoverflow.com/questions/57141796/how-to-print-full-trace-file-of-trace-printk-in-ftrace. To solve this, we need to increase buffer_size_skb (which in host_setup.sh/target_setup.sh):
+7. Note: trace_printk will discard some output for the latency breakdown. https://stackoverflow.com/questions/57141796/how-to-print-full-trace-file-of-trace-printk-in-ftrace. To solve this, we need to increase buffer_size_skb (which in host_setup.sh/target_setup.sh):
    ```
    sudo -s
    echo 451200 > /sys/kernel/debug/tracing/buffer_size_kb
