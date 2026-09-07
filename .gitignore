@@ -1,4 +1,5 @@
 __pycache__
 .vscode
+scripts/old
 
 rsync.sh

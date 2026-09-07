@@ -226,7 +226,7 @@ Note: Each run of the experiment takes about 5mins of application running and ab
         1        64        1    0    1        1      1     3       18.146       34.000     0.05312
     ```
 
-1. To get the heatmap for the **experiment** (Figure 2-b), we first need to run `parse/draw_heatmap.py` to parse the tail region (P99.8-P100) end-to-end latency as a numpy .npy file. Change the configuration in the `parse/parse_breakdown_to_heatmap.py` as:
+1. To get the heatmap for the **experiment** (Figure 2-b), we first need to run `parse/parse_breakdown_to_heatmap.py` to parse the tail region (P99.8-P100) end-to-end latency as a numpy .npy file. Change the configuration in the `parse/parse_breakdown_to_heatmap.py` as:
     ```python
     result_dir = "/data/projects/latency"
     experiments = ["isolated_thread_default"]
@@ -242,17 +242,89 @@ Note: Each run of the experiment takes about 5mins of application running and ab
     1_64_1_0_1_1_1_0  1_64_1_0_1_1_1_2
     1_64_1_0_1_1_1_1  heatmap_isolated_thread_default_1_64_1_0_1_1_1.npy
     ```
-    Then run `parse/draw_heatmap.py` to generate the heatmap. The heatmap will also be located at the experiment folder.
-    TODO: add the heatmap ploting
+    Then run `parse/draw_heatmap.py` to generate the heatmap:
+    ```sh
+    python3 draw_heatmap.py \
+    /data/projects/latency/isolated_thread_default/heatmap_isolated_thread_default_1_64_1_0_1_1_1.npy \
+    -o heatmap_isolated_thread_default.pdf \
+    --cap 10
+    ```
 
-Note: We don't provide our plotting script for artifact evaluation since that will introduce significant workload for code re-organization; we believe the first priority of artifact evaluation is on the functionality, rather than figure-level reproducibility. Nevertheless, if you are interested, you can refer to [Github](https://github.com/amefumi/understand_latency/tree/main/analysis) for (partial) scripts we used to analysis the data and plot the figures.
+Note: We are unable to provide the full plotting script for artifact evaluation since that will introduce significant workload for code re-organization; we believe the first priority of artifact evaluation is on the functionality (to produce the data needed for plotting), rather than plotting-level reproducibility. Nevertheless, if you are interested, you can refer to [Github](https://github.com/amefumi/understand_latency/tree/main/analysis) for (partial) scripts we used to analysis the data and plot the figures.
 
-
-3. [Heat Map] To get the 
 
 ### Figure 3-4: The latency-throughput curve and latency breakdown for Linux, Linux+IRQa, Linux+ACCa, and Linux+PCSched
 
-- You should also be able to get the Figure 8a and Figure 8b through this set of experiment
+1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig3_4_{default,irqa,acca,pcsched}.py`:
+    ```python
+    experiment_name = ...
+    script_name = ...
+    num_apps = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]
+    flowsize = [64]
+    iodepth = [1]
+    dim = [0, 1]
+    pin = [1]
+    permute = [1]
+    cores = [1]
+    runs = [0, 1, 2]
+    ```
+
+1. Run `experiment/run_fig3_4_default.py` under `5.10.46-linux+` (Default Kernel); 
+
+1. Switch the kernel to `5.10.46-latency+` (assuming its already installed on `/boot`):
+    ```sh
+    sudo grub-reboot "Advanced options for Ubuntu>Ubuntu, with Linux 5.10.46-latency+"
+    sudo reboot
+    ```
+    Note that after each time you reboot the server, you have to repeat the Step 3 in Environment Preparation Section, i.e., the `host_setup.sh` and `target_setup.sh`.
+
+1. Run `experiment/run_fig3_4_irqa.py`, `experiment/run_fig3_4_acca.py`, and `experiment/run_fig3_4_pcsched.py` under `5.10.46-latency+` (Customized Kernel)
+
+TODO: multiple threads/change kernel/different parameters on sh script file
+
+Note: This experiment takes significant time. To reduce the waiting time, you can decrease the number of runs, or the time for each run. In r650 server, the knee point is ~36 threads.
+
+#### Evaluation and Data Parse
+1. To get the latency-throughput curve (Figure 3), change the configuration in `parse/parse_single_core_latency_throughput` and run it for **each experiment** in this section, as directed before.
+    1. For example, we need to adjust the parameter for default Linux as:
+        ```python
+        result_dir = "/data/projects/latency"
+        experiments = ["single_core_macro_default"]
+        ```
+    2. Then run the parse script:
+        ```plain
+        netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py 
+        # single_core_macro_default
+        num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_mIOPS
+        --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------
+            2        64        1    0    1        1      1     3       20.705       37.000     0.09482
+            2        64        1    1    1        1      1     3       22.289       48.000     0.08747
+            4        64        1    0    1        1      1     3       27.449       49.000     0.14290
+            4        64        1    1    1        1      1     3       26.307      103.000     0.14900
+            8        64        1    0    1        1      1     3       44.685      320.000     0.17617
+            8        64        1    1    1        1      1     3       68.772      169.000     0.11542
+            12        64        1    0    1        1      1     3       64.004     2002.000     0.18477
+            12        64        1    1    1        1      1     3       94.728      273.000     0.12594
+            16        64        1    0    1        1      1     3       85.226     1966.000     0.18633
+            16        64        1    1    1        1      1     3      111.530      318.000     0.14275
+            20        64        1    0    1        1      1     3      106.889     3239.000     0.18609
+            20        64        1    1    1        1      1     3      134.589      292.000     0.14801
+            24        64        1    0    1        1      1     3      128.859     3523.000     0.18541
+            24        64        1    1    1        1      1     3      104.463     1665.000     0.22820
+            28        64        1    0    1        1      1     3      150.203     4317.000     0.18555
+            28        64        1    1    1        1      1     3      120.002     2626.000     0.23196
+            32        64        1    0    1        1      1     3      172.028     4067.000     0.18538
+            32        64        1    1    1        1      1     3      140.060     1558.000     0.22728
+            36        64        1    0    1        1      1     3      193.705     4416.000     0.18526
+            36        64        1    1    1        1      1     3      151.565     1505.000     0.23656
+            40        64        1    0    1        1      1     3      215.587     4660.000     0.18501
+            40        64        1    1    1        1      1     3      170.895     2333.000     0.23309
+            44        64        1    0    1        1      1     3      237.890     4037.000     0.18446
+            44        64        1    1    1        1      1     3      185.738     2325.000     0.23602
+        ```
+    1. Then you can use other tools to get the latency-throughput curve figure.
+
+1. To get the heatmap (Figure 4) at the knee point, change the configuration in `parse/parse_breakdown_to_heatmap.py` and run it for **each experiment** on its knee point (this means you should first identify the knee point through step 1, and set the **prefix** to the knee point runs). Then draw the heatmap, as directed before.
 
 ### Figure 5: (Modeled) virtual runtime and packets processed in softIRQ for Linux, Linux+ACCa, and Linux+PCSched
 
