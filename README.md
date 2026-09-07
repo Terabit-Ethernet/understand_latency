@@ -280,53 +280,59 @@ Note: We are unable to provide the full plotting script for artifact evaluation 
 
 1. Run `experiment/run_fig3_4_irqa.py`, `experiment/run_fig3_4_acca.py`, and `experiment/run_fig3_4_pcsched.py` under `5.10.46-latency+` (Customized Kernel)
 
-TODO: multiple threads/change kernel/different parameters on sh script file
-
 Note: This experiment takes significant time. To reduce the waiting time, you can decrease the number of runs, or the time for each run. In r650 server, the knee point is ~36 threads.
 
 #### Evaluation and Data Parse
-1. To get the latency-throughput curve (Figure 3), change the configuration in `parse/parse_single_core_latency_throughput` and run it for **each experiment** in this section, as directed before.
-    1. For example, we need to adjust the parameter for default Linux as:
-        ```python
-        result_dir = "/data/projects/latency"
-        experiments = ["single_core_macro_default"]
-        ```
-    2. Then run the parse script:
-        ```plain
-        netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py 
-        # single_core_macro_default
-        num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_mIOPS
-        --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------
-            2        64        1    0    1        1      1     3       20.705       37.000     0.09482
-            2        64        1    1    1        1      1     3       22.289       48.000     0.08747
-            4        64        1    0    1        1      1     3       27.449       49.000     0.14290
-            4        64        1    1    1        1      1     3       26.307      103.000     0.14900
-            8        64        1    0    1        1      1     3       44.685      320.000     0.17617
-            8        64        1    1    1        1      1     3       68.772      169.000     0.11542
-            12        64        1    0    1        1      1     3       64.004     2002.000     0.18477
-            12        64        1    1    1        1      1     3       94.728      273.000     0.12594
-            16        64        1    0    1        1      1     3       85.226     1966.000     0.18633
-            16        64        1    1    1        1      1     3      111.530      318.000     0.14275
-            20        64        1    0    1        1      1     3      106.889     3239.000     0.18609
-            20        64        1    1    1        1      1     3      134.589      292.000     0.14801
-            24        64        1    0    1        1      1     3      128.859     3523.000     0.18541
-            24        64        1    1    1        1      1     3      104.463     1665.000     0.22820
-            28        64        1    0    1        1      1     3      150.203     4317.000     0.18555
-            28        64        1    1    1        1      1     3      120.002     2626.000     0.23196
-            32        64        1    0    1        1      1     3      172.028     4067.000     0.18538
-            32        64        1    1    1        1      1     3      140.060     1558.000     0.22728
-            36        64        1    0    1        1      1     3      193.705     4416.000     0.18526
-            36        64        1    1    1        1      1     3      151.565     1505.000     0.23656
-            40        64        1    0    1        1      1     3      215.587     4660.000     0.18501
-            40        64        1    1    1        1      1     3      170.895     2333.000     0.23309
-            44        64        1    0    1        1      1     3      237.890     4037.000     0.18446
-            44        64        1    1    1        1      1     3      185.738     2325.000     0.23602
-        ```
-    1. Then you can use other tools to get the latency-throughput curve figure.
+1. After all four experiments in this part finish, you should see results dir `single_core_macro_default`, `single_core_macro_irqa`, `single_core_macro_acca`, and `single_core_macro_pcsched` in `/data/project/latency` dir.
 
-1. To get the heatmap (Figure 4) at the knee point, change the configuration in `parse/parse_breakdown_to_heatmap.py` and run it for **each experiment** on its knee point (this means you should first identify the knee point through step 1, and set the **prefix** to the knee point runs). Then draw the heatmap, as directed before.
+1. To get the latency-throughput curve (Figure 3), change the configuration in `parse/parse_single_core_latency_throughput` and run it for **each experiment** in this section, as directed before. For example, we need to adjust the parameter for default Linux as:
+    ```python
+    result_dir = "/data/projects/latency"
+    experiments = ["single_core_macro_default"]
+    ```
+1. Then run the parse script, which will parse the data needed to plot the latency-throughput curve figure:
+    ```plain
+    netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py 
+    # single_core_macro_default
+    num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_mIOPS
+    --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------
+        2        64        1    0    1        1      1     3       20.705       37.000     0.09482
+        2        64        1    1    1        1      1     3       22.289       48.000     0.08747
+        4        64        1    0    1        1      1     3       27.449       49.000     0.14290
+        4        64        1    1    1        1      1     3       26.307      103.000     0.14900
+        8        64        1    0    1        1      1     3       44.685      320.000     0.17617
+        8        64        1    1    1        1      1     3       68.772      169.000     0.11542
+        12        64        1    0    1        1      1     3       64.004     2002.000     0.18477
+        12        64        1    1    1        1      1     3       94.728      273.000     0.12594
+        16        64        1    0    1        1      1     3       85.226     1966.000     0.18633
+        16        64        1    1    1        1      1     3      111.530      318.000     0.14275
+        20        64        1    0    1        1      1     3      106.889     3239.000     0.18609
+        20        64        1    1    1        1      1     3      134.589      292.000     0.14801
+        24        64        1    0    1        1      1     3      128.859     3523.000     0.18541
+        24        64        1    1    1        1      1     3      104.463     1665.000     0.22820
+        28        64        1    0    1        1      1     3      150.203     4317.000     0.18555
+        28        64        1    1    1        1      1     3      120.002     2626.000     0.23196
+        32        64        1    0    1        1      1     3      172.028     4067.000     0.18538
+        32        64        1    1    1        1      1     3      140.060     1558.000     0.22728
+        36        64        1    0    1        1      1     3      193.705     4416.000     0.18526
+        36        64        1    1    1        1      1     3      151.565     1505.000     0.23656
+        40        64        1    0    1        1      1     3      215.587     4660.000     0.18501
+        40        64        1    1    1        1      1     3      170.895     2333.000     0.23309
+        44        64        1    0    1        1      1     3      237.890     4037.000     0.18446
+        44        64        1    1    1        1      1     3      185.738     2325.000     0.23602
+    ```
+
+1. To get the heatmap (Figure 4) at the knee point, change the configuration in `parse/parse_breakdown_to_heatmap.py` and run it for **each experiment** on its knee point (this means you should first identify the knee point through step 1, and set the **prefix** to the knee point runs). Then draw the heatmap, as directed in the Figure 2 experiment.
 
 ### Figure 5: (Modeled) virtual runtime and packets processed in softIRQ for Linux, Linux+ACCa, and Linux+PCSched
+
+TODO: update modules
+
+TODO: update scripts
+
+TODO: update runners
+
+TODO: end-to-end test
 
 ### Figure 7: Processing Time vs Stall Cycles for Linux+ACCa
 
@@ -339,6 +345,27 @@ sudo insmod /home/ame/latency/read_rdpmc/latency_pmu.ko
 
 
 ### Figure 8c: The latency-throughput curve for Linux+PCSched+AutoDIM
+
+1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig8c_autodim.py`:
+    ```python
+    experiment_name = "single_core_macro_autodim"
+    script_name = "single_core_macro_psched.sh"
+    num_apps = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]
+    flowsize = [64]
+    iodepth = [1]
+    dim = [2]
+    pin = [1]
+    permute = [1]
+    cores = [1]
+    runs = [0, 1, 2]
+    ```
+
+1. Run `experiment/run_fig8c_autodim.py` under `5.10.46-latency+` (customized kernel) 
+
+#### Evaluation and Data Parse
+1. After all four experiments in this part finish, you should see result dir `single_core_macro_autodim` in `/data/project/latency` dir.
+
+1. Parse the experiment with directions in Figure 3-4 part.
 
 ### Figure 9-10: Latency-throughput curve with increasing in-flight requests for Linux, Linux+ACCa, and Linux+PCSched
 
