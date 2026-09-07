@@ -38,6 +38,8 @@ configure_latency_sysctls_local()
     sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0
     sudo sysctl -w net.core.latency_dumb_schedule_enable=0
     sudo sysctl -w net.core.latency_perstage_rdpmc_on=0
+    echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
+    echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting
 }
 
 
@@ -51,6 +53,10 @@ configure_latency_sysctls_remote()
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_enable=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_perstage_rdpmc_on=0"
+    ssh $USER\@$TARGETC -t \
+        "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
+    ssh $USER\@$TARGETC -t \
+        "echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting"
 }
 
 
@@ -64,6 +70,8 @@ reset_latency_sysctls_local()
     sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0
     sudo sysctl -w net.core.latency_dumb_schedule_enable=0
     sudo sysctl -w net.core.latency_perstage_rdpmc_on=0
+    echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
+    echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting
 }
 
 
@@ -77,39 +85,31 @@ reset_latency_sysctls_remote()
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_enable=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_perstage_rdpmc_on=0"
+    ssh $USER\@$TARGETC -t \
+        "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
+    ssh $USER\@$TARGETC -t \
+        "echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting"
 }
 
 
 enable_tracing_local()
 {
     sudo trace-cmd clear
-
     echo 1 | sudo tee /sys/kernel/debug/tracing/tracing_on
-    echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
-    echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting
 }
 
 
 enable_tracing_remote()
 {
     ssh $USER\@$TARGETC -t "sudo trace-cmd clear"
-
     ssh $USER\@$TARGETC -t \
         "echo 1 | sudo tee /sys/kernel/debug/tracing/tracing_on"
-
-    ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
-
-    ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting"
 }
 
 
 disable_tracing_local()
 {
     echo 0 | sudo tee /sys/kernel/debug/tracing/tracing_on
-    echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
-    echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting
 }
 
 
@@ -117,12 +117,6 @@ disable_tracing_remote()
 {
     ssh $USER\@$TARGETC -t \
         "echo 0 | sudo tee /sys/kernel/debug/tracing/tracing_on"
-
-    ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
-
-    ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting"
 }
 
 
