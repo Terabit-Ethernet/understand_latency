@@ -1,6 +1,11 @@
-# Understanding Host Network Stack Latency
+# Understanding Host Network Stack Latency — Experiment Set
 
-Measurement tools for SIGCOMM '2026 paper "Understanding Host Network Stack Latency"
+Experiment set for our SIGCOMM '2026 paper "Understanding Host Network Stack Latency"
+
+## Prelude
+Note: This experiment set is not essential to understand the Linux network stack latency. Actually, with our [customized Linux kernel](https://github.com/Terabit-Ethernet/linux-latency), you should be able to run the latency analysis on any desired workload. This experiment set works as the reference point.
+
+Note: we provide essential data analysis tools in `parse` folder **as reference**; it's extremely difficult for us to provide end-to-end (figure level) analysis tools since the experiment results may vary across different hardware configuration.
 
 ## Hardware Requirement
 
@@ -20,17 +25,26 @@ We have used the follwing hardware and software configurations for running the e
 You must uninstall all active OFED driver for NIC in your system since we rely on kernel's in-tree mlx5e driver to report the recorded timestamps when finally injectign the packet to the link.
 Please refer to [NVIDIA](https://networking-docs.nvidia.com/mlnxofedswum/24.10-5.1.6.1lts/uninstalling-the-driver) for how to uninstalling OFED drivers.
 
-
-We rely on `hwstamp_ctl` and `phc2sys` to sync time between CPU and NIC, and read NIC's hardware timestamp. We also rely on `sar` for CPU utilization monitoring.
+Install the essential software:
+1. We rely on `hwstamp_ctl` and `phc2sys` to sync time between CPU and NIC, and read NIC's hardware timestamp.
+1. We rely on `sar` for CPU utilization monitoring.
+1. We rely on `trace-cmd` for resetting ftrace buffer.
 ```sh
 sudo apt update
-sudo apt install linuxptp sysstat
+sudo apt install linuxptp sysstat trace-cmd
 ```
 
+The expeirment requires `numpy` for data processing, and `matplotlib` for essential plotting:
+```sh
+wget https://bootstrap.pypa.io/get-pip.py
+python3 get-pip.py
+python3 -m pip install numpy
+python3 -m pip install matplotlib
+```
 
 ## Kernel Installation
 
-Please refer to linux-latency repo for kernel installation. In this document, we will explicitely denote which kernel is required for each set of experiments.
+Please refer to https://github.com/Terabit-Ethernet/linux-latency for kernel installation. In this document, we will explicitely denote which kernel is required for each set of experiments.
 
 Note: We recommend duplicate the clone for different kernel version since kernel compiling could be very slow, and we need to switch between different kernels. You MUST build separate kernel images for each machine. The latency monitor is keyed to the host's own IP address, which is hardcoded at compile time.
 
@@ -57,14 +71,18 @@ The experiment will generate significant amount of data. In this artifact evalua
 The diagram shows the CPU layout, NIC interface and IP address for this evaluation guide based on r650 machines.
 
 ### Kernel Preparation
+Note: do this in both server, with potentially different hardcoded parameters.
+
 We assume you have installed the kernel and drivers as we instructed before. We should have two kernel in `/boot`:
 1. `5.10.46-linux+`: This is the default Linux kernel that disable the IRQ time accounting option.
 2. `5.10.46-latency+`: This is the experimental Linux kernel with IRQ time accounting; our design (ACCa and PCSched) will work through runtime parameter settings.
 
 ### Environment Preparation
-1. Clone the project to `latency` under user's folder (`/usr/netian` in r650 server).
+Note: Do this on both server, with potentially different scripts.
+
+1. Clone the project to `latency` under user's folder (e.g., `/users/netian` in r650 server).
     ```sh
-    cd /user/netian
+    cd ~
     git clone https://github.com/Terabit-Ethernet/understand_latency.git latency
     ```
 
@@ -78,19 +96,21 @@ We assume you have installed the kernel and drivers as we instructed before. We 
     TARGETDIR=/users/netian
     ```
 
-1. Run `host_setup.sh` on the Client side, and run `target_setup.sh` in the server side. These script will setup the CPU affinity to NIC's interrupt channel, aRFS, GRO, and other optimization we used in our experiment. Note: You should use tmux to run these script, or keep the ssh window, to make sure `phc2sys` alive.
+1. Run `host_setup.sh` on the Client side, and run `target_setup.sh` in the server side. These script will setup the CPU affinity to NIC's interrupt channel, aRFS, GRO, and other optimization we used in our experiment. Note: You should keep the ssh window open to make sure `phc2sys` alive; we recommend using `tmux`, see [Tmux Cheat Sheet](https://tmuxcheatsheet.com/) for usage.
     ```sh
+    # Optional: Use tmux
     tmux new -s setup
 
     # Client side
-    sudo ./host_setup.sh
+    ./host_setup.sh
     # Server side
-    sudo ./target_setup.sh
-
-    # Note: Use Ctrl+B, then D to leave tmux window.
+    ./target_setup.sh
     ```
 
-### Application Preparation
+### Application Modification
+
+Note: Do this on both servers.
+
 Note: While not recommended, if you are using CloudLab r650, you can skip this part.
 
 We enable hyper-threading by default. As shown in the experiment diagram, for a selected physical CPU core, we need to pin application threads to its two logical cores (siblings). With different CPU hardware, siblings number could be different.
@@ -120,24 +140,115 @@ TASKSET="1,3,5,7,....73,75,77,79,..." // Multiple Cores
 
 ```
 
+Note: Please make sure you have also changed the hardcoded CPU core numbers used to filter stashing measurement results in the kernel, as directed in the kernel repo.
+
+### Application and Kernel Module Compilation
+Note: You should do this on both servers.
+
 Compile the test application:
 ```sh
 cd ./application
 make clean && make
 ```
 
+We use kernel modules to probe the virutal runtime of threads, the packets handled in softIRQ, the packet size distribution, and to program the CPU PMU directly:
+```sh
+cd modules && make
+```
+Note: Please re-make the kernel modules each time you've switched the kernel to make sure they work properly.
 
 ### Figure 2: the isolated performance for default Linux
-1. Reboot to `5.10.46-linux+` kernel:
+1. Reboot to `5.10.46-linux+` (Default Linux) kernel:
     ```sh
     sudo grub-reboot "Advanced options for Ubuntu>Ubuntu, with Linux 5.10.46-linux+"
     sudo reboot
     ```
-2. 
+
+2. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig2_default.py`:
+    ```python
+    experiment_name = "isolated_thread_default"
+    script_name = "single_core_macro_default.sh"
+    num_apps = [1]
+    flowsize = [64]
+    iodepth = [1]
+    dim = [0]
+    pin = [1]
+    permute = [1]
+    cores = [1]
+    runs = [0, 1, 2]
+    ```
+
+3. Run the experiment runner. We recommend using tmux to avoid progress loss.
+    ```shell
+    cd ./experiment
+    tmux new -s experiment # Optional tmux
+    python3 run_fig2_default.py
+    ```
+
+Note: Each run of the experiment takes about 5mins of application running and about 1min of data stashing. With 3 runs in this experiment, it takes ~18mins in total.
 
 
 #### Evaluation and Data Parse
+1. **Experiment** results will be located at `/data/projects/latency/isolated_thread_default/` by default. In this experiment, we have 3 runs, 5 mins per run. For example, the result folder should look like:
+    ```sh
+    netian@node0:/data/projects/latency/isolated_thread_default$ ls
+    1_64_1_0_1_1_1_0  1_64_1_0_1_1_1_1  1_64_1_0_1_1_1_2
+    ```
 
+1. For each run, the throughput, the latency (average, P50, and P99.9), and the raw latency breakdown timestamps will be recorded in `throughput.log`, `latency.log`, and `latencies-1.log` for client side and `latencies-1-server.log` for server side. For example:
+    ```sh
+    netian@node0:/data/projects/latency/isolated_thread_default/1_64_1_0_1_1_1_2$ cat throughput.log
+    53085.7 # Throughput = 53085.7 IOPS = 0.053 mIOPS
+    netian@node0:/data/projects/latency/isolated_thread_default/1_64_1_0_1_1_1_2$ cat latency.log 
+    18.1494 23 34 # Average = 18.1494, P50 = 23, P99 = 34
+    ```
+    Note: the results may vary significantly compared to the results in our paper due to hardware differences.
+
+1. We also record the end-to-end latency distribution for each thread in `netperf-{#thread}_hist.bin`. To obtain the experiment-level P99.9 latency, we merge the latency distributions across all runs before computing the percentile, rather than averaging the P99.9 values from individual runs.
+
+1. To get the average throughput, average latency and P99.9 tail latency (Figure 2-a) for each **experiment**, change the configuration in `parse/parse_single_core_latency_throughput` to the experient results folder:
+    ```python
+    # Configuration:
+    result_dir = "/data/projects/latency"
+    # Experiments to parse. Leave empty to parse every experiment found in result_dir.
+    experiments = ["isolated_thread_default"]
+    ```
+    and run the script:
+    ```sh
+    cd parse && python3 parse_single_core_latency_throughput.py
+    ```
+    the output should look like:
+    ```plain
+    netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py 
+    # isolated_thread_default
+    num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_MIOPS
+    --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------
+        1        64        1    0    1        1      1     3       18.146       34.000     0.05312
+    ```
+
+1. To get the heatmap for the **experiment** (Figure 2-b), we first need to run `parse/draw_heatmap.py` to parse the tail region (P99.8-P100) end-to-end latency as a numpy .npy file. Change the configuration in the `parse/parse_breakdown_to_heatmap.py` as:
+    ```python
+    result_dir = "/data/projects/latency"
+    experiments = ["isolated_thread_default"]
+    prefixes = ["1_64_1_0_1_1_1_"]
+    ```
+    and run the script:
+    ```sh
+    cd parse && python3 parse_breakdown_to_heatmap.py
+    ```
+    It may takes ~2mins for processing to finish. After that, we will see the npy file in the experiment folder:
+    ```plain
+    netian@node0:/data/projects/latency/isolated_thread_default$ ls
+    1_64_1_0_1_1_1_0  1_64_1_0_1_1_1_2
+    1_64_1_0_1_1_1_1  heatmap_isolated_thread_default_1_64_1_0_1_1_1.npy
+    ```
+    Then run `parse/draw_heatmap.py` to generate the heatmap. The heatmap will also be located at the experiment folder.
+    TODO: add the heatmap ploting
+
+Note: We don't provide our plotting script for artifact evaluation since that will introduce significant workload for code re-organization; we believe the first priority of artifact evaluation is on the functionality, rather than figure-level reproducibility. Nevertheless, if you are interested, you can refer to [Github](https://github.com/amefumi/understand_latency/tree/main/analysis) for (partial) scripts we used to analysis the data and plot the figures.
+
+
+3. [Heat Map] To get the 
 
 ### Figure 3-4: The latency-throughput curve and latency breakdown for Linux, Linux+IRQa, Linux+ACCa, and Linux+PCSched
 
@@ -184,8 +295,18 @@ When we (more specifically, Tianyu) have time, we will update the code to fully 
 
 Though, once you have the customized kernel, the experimental application, the essential kernel modules, and the reference experiment script, you should be able to design any new experiments.
 
+## Acknowledgement
+[Tianyu](https://netian.me) is the current maintainer for this project. Please contact him if you have any issue: zuotianyu@virginia.edu
 
-## Contact Us
-Please contact Tianyu if you have any issue running this codebase: zuotianyu@virginia.edu
+Codex and Claude Code are used to polish this document.
 
-If you find this work helpful, please consider citing us:
+If you find this work useful, please cite:
+```plain
+@inproceedings{UnderstandLatencyUVA,
+  title={Understanding Host Network Stack Latency},
+  author={Zuo, Tianyu and Hwang, Jaehyun and Tang, Ao and Agarwal, Rachit and Cai, Qizhe},
+  booktitle={Proceedings of the ACM SIGCOMM 2026 Conference},
+  pages={1127--1140},
+  year={2026}
+}
+```

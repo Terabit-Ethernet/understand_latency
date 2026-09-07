@@ -18,8 +18,14 @@ ssh $USER\@$TARGETC -t "mkdir -p $TARGETDIR/latency/temp"
 
 echo "$DIR"
 
-LOG=$((997 / N))
-if [[ $N -gt 10 ]]; then LOG=200; fi
+if [[ $N -le 1 ]]; then
+    LOG=10
+elif [[ $N -ge 10 ]]; then
+    LOG=200
+else
+    LOG=$((10+(N-1)*(190)/9))
+fi
+
 uname -r > $DIR/kernel_version.log
 
 # client-side

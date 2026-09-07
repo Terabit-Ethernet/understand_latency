@@ -345,8 +345,4 @@ for i in range(0, N ):
     # print ('''{}, {}, {}, {}, {}, {}, {}'''
     # .format(t.client_port, t.client_core, t.server_core, t.client_pid, t.server_pid, t.thpt, t.latency / 1000000.0))
 results.sort()
-# Print the netperf latencies
-categories = ['m_lat', 'p99_lat', 'p999_lat']
-print("{}\t{}\t{}".format('m_lat','p99_lat',  'p999_lat', "thpt"))
-
 print("{}\t".format(total_thpt))
