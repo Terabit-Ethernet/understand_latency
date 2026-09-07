@@ -3,7 +3,8 @@ import subprocess
 from itertools import product
 
 # Experiment Parameters:
-experiment_name="isolated_thread_default"
+experiment_name = "isolated_thread_default"
+script_name = "single_core_macro_default.sh"
 num_apps = [1]
 flowsize = [64]
 iodepth = [1]
@@ -40,7 +41,7 @@ def main():
         exp_outdir = "/data/projects/latency/{}/{}_{}_{}_{}_{}_{}_{}_{}".format(experiment_name, n, f, i, d, p, perm, core, run)
         os.makedirs(exp_outdir, exist_ok=True)
         wrtie_to_config(exp_outdir, experiment_name, n * core, f, i, d, p, perm, core)
-        command = f"../scripts/single_core_macro_default.sh {n} {exp_outdir} {f} {i} {d} {p} {perm}"
+        command = f"../scripts/{script_name} {n} {exp_outdir} {f} {i} {d} {p} {perm}"
         print(command)
         subprocess.run(command, shell=True)
 

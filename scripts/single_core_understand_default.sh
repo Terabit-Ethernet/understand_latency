@@ -249,7 +249,7 @@ sudo mv temp/*.bin $DIR/
 # sudo mv temp/cache_sample_server.data $DIR/
 # sudo mv temp/perf_sample_client.svg $DIR/
 # sudo mv temp/perf_sample_server.svg $DIR/
-./parse/parse-netperf.py $DIR $N > $DIR/linux_latency
+./parse/parse-netperf.py $DIR $N > $DIR/throughput.log
 
 # if [[ $IODEPTH -eq 1 ]];
 # then

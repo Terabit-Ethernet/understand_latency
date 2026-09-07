@@ -426,8 +426,8 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 	fflush(stdout);
 #endif
 
-	lfile.open("temp/netperf-" + std::to_string(id)+".log");
-	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
+	lfile.open("../temp/netperf-" + std::to_string(id)+".log");
+	tfile.open("../temp/netperf-" + std::to_string(id)+"_thpt.log");
 	// tfile <<   pid << " " << ntohs(client.sin_port) << " "
 	// 	<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
 	tfile <<   pid << " " << ntohs(client.sin_port) << " " 
@@ -442,7 +442,7 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 		std::atomic_fetch_add(&time_hist[i], local_time_hist[i]);
 	}
 	
-	hfile.open("temp/netperf-" + std::to_string(id)+"_hist.bin", std::ios::binary);
+	hfile.open("../temp/netperf-" + std::to_string(id)+"_hist.bin", std::ios::binary);
 	hfile.write(reinterpret_cast<const char*>(local_time_hist.data()), local_time_hist.size() * sizeof(long long));
 
 	lfile.close();
@@ -697,8 +697,8 @@ int main(int argc, char** argv)
 	int experiment_time = 300;
 	stop_count = 0;
 	atomic_store(&connected_count, 0);
-	lfile.open("temp/latency.log");
-	hfile.open("temp/overall_hist.bin",  std::ios::binary);
+	lfile.open("../temp/latency.log");
+	hfile.open("../temp/overall_hist.bin",  std::ios::binary);
     for (i = 0; i < MAX_HIST_VALUE; ++i) {
         time_hist[i].store(0);
     }
