@@ -51,7 +51,7 @@ Note: We recommend duplicate the clone for different kernel version since kernel
 We assume we have two kernel: one is the default (e.g., 5.10.46-default), and one is for IRQa, ACCa, and PCSched (e.g., 5.10.46-latency), which are switched by runtime parameters.
 
 ## Artifact Evaluation Guide
-Important: the experimental results from artifact evaluation may differ significantly from that in our paper due to hardware differences. To fully reproduce the results in our paper, we recommend using exactly the same hardware (i.e., CPU, RAM, and NIC); that said, due to potential export control and policy issue, we were unable to provide access to our own servers.
+Important: the experimental results from artifact evaluation may look different from that in our paper due to hardware differences. To fully reproduce the results in our paper, we recommend using exactly the same hardware (i.e., CPU, RAM, and NIC); that said, due to potential export control and policy issue, we might only be able to provide access to our own servers upon request.
 
 ### (Optional) CloudLab Setup
 To facilitate the artifact evaluation, we recommend using the [**r650**](https://docs.cloudlab.us/hardware.html#(part._cloudlab-clemson))) type server from CloudLab. Our experiment scripts and settings in this section will also be based on r650 server.
@@ -423,8 +423,9 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
 
 1. Install the `program_pmu` module in the client side:
     ```sh
-    sudo rmmod latency_pmu
-    sudo insmod /home/ame/latency/read_rdpmc/latency_pmu.ko
+    cd modules
+    sudo rmmod program_pmu
+    sudo insmod program_pmu.ko cpus=1,73
     ```
 
 1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig7_acca.py`:
@@ -443,9 +444,62 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
 
 1. Run `experiment/run_fig7_acca.py` under `5.10.46-latency+` (customized kernel)
 
+#### Evaluation and Data Parse
+1. After the experiments finishes, you should see result dir `single_core_rdpmc_acca` in `/data/project/latency` dir. Select one run from the dir and change the configuration in `parse/parse_rdpmc_acca.py`:
+    ```python
+    result_dir = "/data/projects/latency/"
+    experiment = "single_core_rdpmc_acca/36_64_1_1_1_1_1_0"
+    n_thread = 36
+    ```
+
+1. Run the `parse/parse_rdpmc_acca.py`. The output should look like below. `{cli,srv}_time` is the client/server-side processing time, `{cli,srv}_stall` is the stall cycles, and `{cli,srv}_stall_l1d` is the stall cycles when there is at least one outstanding L1d miss. Note only half of the ports belong the same logical core, and the remaining half belongs to its sibling logical core.
+    ```plain
+    netian@node0:~/latency/parse$ python3 parse_rdpmc_acca.py 
+    port  cli_time  cli_stall  cli_stall_l1d  srv_time  srv_stall  srv_stall_l1d
+    -----------------------------------------------------------------------------
+    10000    1995.0     2814.0          374.7    1868.2     2573.9          354.3
+    10001    1988.9     2807.6          408.2    1859.5     2539.8          298.8
+    10002    1983.2     2782.0          383.3    1859.6     2546.1          331.4
+    10003    2005.1     2855.9          466.6    1877.2     2594.7          316.1
+    10004    1977.9     2773.6          394.0    1868.2     2564.0          296.9
+    10005    2002.9     2845.6          447.0    1868.2     2568.1          311.8
+    10006    1977.5     2767.3          374.7    1851.0     2517.8          305.0
+    10007    1982.9     2784.7          378.7    1863.4     2553.0          304.6
+    10008    1982.2     2776.9          376.7    1865.9     2566.3          345.6
+    10009    1989.3     2801.9          401.9    1865.6     2557.4          320.8
+    10010    2008.6     2866.1          489.6    1870.0     2568.9          290.2
+    10011    1985.4     2791.0          415.3    1872.6     2577.1          299.4
+    10012    1987.6     2806.2          426.5    1878.3     2598.5          349.1
+    10013    1983.2     2788.1          382.8    1888.0     2624.5          372.0
+    10014    2000.6     2846.7          471.4    1873.7     2582.3          294.7
+    10015    1989.2     2802.3          389.3    1867.4     2563.6          350.4
+    10016    1981.1     2785.6          419.7    1871.6     2573.8          305.2
+    10017    1984.5     2785.0          360.1    1869.5     2573.5          396.9
+    10018    1979.8     2781.0          386.1    1848.1     2529.6          286.8
+    10019    2007.3     2870.8          498.4    1864.0     2564.2          300.0
+    10020    1982.7     2797.9          424.9    1855.6     2542.0          297.3
+    10021    1986.4     2805.5          379.7    1857.4     2557.4          347.4
+    10022    1985.5     2798.4          370.5    1840.2     2513.7          302.3
+    10023    1971.1     2755.6          356.8    1831.8     2483.2          310.4
+    10024    1974.2     2766.1          372.4    1855.1     2552.2          339.1
+    10025    1962.7     2731.8          359.1    1855.3     2544.3          309.2
+    10026    1980.5     2785.9          380.6    1836.9     2500.4          293.5
+    10027    1982.0     2792.6          415.6    1858.2     2549.9          296.6
+    10028    1972.6     2759.0          374.4    1848.0     2526.4          288.2
+    10029    1980.7     2786.2          410.8    1856.2     2542.5          331.8
+    10030    1989.2     2817.4          455.8    1870.4     2581.5          287.0
+    10031    1971.4     2759.4          369.3    1848.0     2524.7          282.4
+    10032    1988.9     2812.7          419.8    1868.2     2587.3          362.9
+    10033    1970.3     2759.2          383.2    1857.8     2549.1          305.2
+    10034    1981.6     2793.5          440.3    1861.3     2559.7          302.8
+    10035    1979.0     2784.1          382.3    1849.5     2527.5          326.0
+    [STATS] client: 36 threads, processing time 1962.7 .. 2008.6 ns, gap 45.9 ns
+    [STATS] server: 36 threads, processing time 1831.8 .. 1888.0 ns, gap 56.3 ns
+    ```
+
 ### Figure 8c: The latency-throughput curve for AutoDIM
 
-TODO: AutoDIM hyper-parameter
+Important: as we state in our paper, the AutoDIM sets "the minimum packet threshold and the maximum timeout before triggering an interrupt (i.e., `rx_frames` and `rx_usecs`) to half of the total in-flight packets across threads on a single logical core and the corresponding total processing time." However, different hardware configuration leads to different processing time, thus different hyper-parameter (i.e., average processing time per-packet). We leave this hyper-parameter tuning to the exerciser.
 
 1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig8c_autodim.py`:
     ```python
@@ -473,20 +527,38 @@ TODO: AutoDIM hyper-parameter
 
 1. Run `experiment/run_fig9_10_default.py` under `5.10.46-linux+` (default Linux).
 
-1. Run `experiment/run_fig9_10_default.py` under `5.10.46-latency+` (customized kernel).
+1. Run `experiment/run_fig9_10_acca.py` and `experiment/run_fig9_10_pcsched.py` under `5.10.46-latency+` (customized kernel).
 
 ### Evaluation and Data Parse
+
+TODO: check iodepth script
 
 TODO: different per-stage latency parse for iodepth
 
 
 ### Figure 11: CDF for the number of requests per segment
 
+TODO: scripts
+
+TODO: parse
+
 ### Figure 12: Latency-throughput curve and latency breakdown with multiple CPU cores
+
+TODO: scripts
 
 ### Figure 13:  Latency-throughput curve with increasing in-flight requests under multiple cores
 
-### Figure 14-17: Supplementary experiment
+TODO: parse
+
+### Figure 15: EEVDF Performance
+
+TODO: add EEVDF patch
+
+TODO: EEVDF macro script
+
+TODO: EEVDF understand script and parse
+
+### Figure 14, 16-17: Supplementary experiment
 
 The experiments above have well support our key insights in our paper:
 1. Scheduling dominates the high tail latency

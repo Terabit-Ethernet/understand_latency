@@ -23,7 +23,7 @@ import numpy as np
 # Configuration:
 result_dir = "/data/projects/latency"
 # Experiments to parse. Leave empty to parse every experiment found in result_dir.
-experiments = ["single_core_macro_default"]
+experiments = ["single_core_understand_acca"]
 
 total_bin = 100000
 

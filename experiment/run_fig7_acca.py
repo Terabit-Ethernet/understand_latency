@@ -5,7 +5,7 @@ from itertools import product
 # Experiment Parameters:
 experiment_name = "single_core_rdpmc_acca"
 script_name = "single_core_rdpmc_acca.sh"
-num_apps = [32, 34, 36, 38, 40]
+num_apps = [34, 36, 38]
 flowsize = [64]
 iodepth = [1]
 dim = [1]
