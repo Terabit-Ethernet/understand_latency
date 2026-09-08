@@ -31,22 +31,22 @@ source ../env.sh
 configure_latency_sysctls_local()
 {
     sudo sysctl -w net.core.latency_breakdown_on=1
-    sudo sysctl -w net.core.latency_rx_sched_lat_only=0
+    sudo sysctl -w net.core.latency_rx_sched_lat_only=1
     sudo sysctl -w net.core.latency_breakdown_log=$LOG
     sudo sysctl -w net.core.latency_breakdown_validation=0
     sudo sysctl -w net.core.latency_dumb_schedule_weight=1000
     sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0
     sudo sysctl -w net.core.latency_dumb_schedule_enable=0
     sudo sysctl -w net.core.latency_perstage_rdpmc_on=0
-    echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
-    echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting
+    echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting
+    echo 1 | sudo tee /sys/module/core/parameters/scheduler_accounting
 }
 
 
 configure_latency_sysctls_remote()
 {
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_on=1"
-    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_rx_sched_lat_only=0"
+    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_rx_sched_lat_only=1"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_log=$LOG"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_validation=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_weight=1000"
@@ -54,9 +54,9 @@ configure_latency_sysctls_remote()
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_enable=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_perstage_rdpmc_on=0"
     ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
+        "echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
     ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting"
+        "echo 1 | sudo tee /sys/module/core/parameters/scheduler_accounting"
 }
 
 
@@ -117,37 +117,6 @@ disable_tracing_remote()
 {
     ssh $USER\@$TARGETC -t \
         "echo 0 | sudo tee /sys/kernel/debug/tracing/tracing_on"
-}
-
-
-enable_modules_local()
-{
-    sudo insmod ../modules/vruntime_probe.ko sample_cpu=73 total_count=300 interval_ms=1000
-    sudo insmod ../modules/softirq_packets.ko
-    echo 1 | sudo tee /sys/module/softirq_packets/parameters/enable_filter
-}
-
-
-enable_modules_remote()
-{
-    ssh $USER\@$TARGETC -t \
-        "sudo insmod $TARGETDIR/latency/modules/vruntime_probe.ko sample_cpu=73 total_count=300 interval_ms=1000"
-    ssh $USER\@$TARGETC -t "sudo insmod $TARGETDIR/latency/modules/softirq_packets.ko"
-    ssh $USER\@$TARGETC -t "echo 1 | sudo tee /sys/module/softirq_packets/parameters/enable_filter"
-}
-
-
-disable_modules_local()
-{
-    sudo rmmod vruntime_probe
-    sudo rmmod softirq_packets
-}
-
-
-disable_modules_remote()
-{
-    ssh $USER\@$TARGETC -t "sudo rmmod vruntime_probe"
-    ssh $USER\@$TARGETC -t "sudo rmmod softirq_packets"
 }
 
 
@@ -296,13 +265,6 @@ collect_stats_before
 
 
 ###############################################################################
-# Enable kernel modules
-###############################################################################
-enable_modules_local
-enable_modules_remote
-
-
-###############################################################################
 # Start server
 #
 # NOTE:
@@ -409,19 +371,6 @@ echo "[CLIENT] Waiting for client to finish"
 wait $PIDS
 
 echo "[CLIENT] Client finished"
-
-
-###########################################################################
-# Stop kernel modules and collect kernel log
-###########################################################################
-
-disable_modules_local
-sudo tail -n 1000  /var/log/kern.log > $DIR/iter_thread_client.log
-
-disable_modules_remote
-ssh $USER\@$TARGETC -t \
-    "sudo tail -n 1000  /var/log/kern.log" \
-    > $DIR/iter_thread_server.log
 
 
 ###############################################################################

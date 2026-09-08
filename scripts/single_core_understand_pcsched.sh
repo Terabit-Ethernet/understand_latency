@@ -35,11 +35,11 @@ configure_latency_sysctls_local()
     sudo sysctl -w net.core.latency_breakdown_log=$LOG
     sudo sysctl -w net.core.latency_breakdown_validation=0
     sudo sysctl -w net.core.latency_dumb_schedule_weight=1000
-    sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0
-    sudo sysctl -w net.core.latency_dumb_schedule_enable=0
+    sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=1
+    sudo sysctl -w net.core.latency_dumb_schedule_enable=1
     sudo sysctl -w net.core.latency_perstage_rdpmc_on=0
-    echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
-    echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting
+    echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting
+    echo 1 | sudo tee /sys/module/core/parameters/scheduler_accounting
 }
 
 
@@ -50,13 +50,13 @@ configure_latency_sysctls_remote()
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_log=$LOG"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_validation=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_weight=1000"
-    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0"
-    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_enable=0"
+    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=1"
+    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_enable=1"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_perstage_rdpmc_on=0"
     ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
+        "echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
     ssh $USER\@$TARGETC -t \
-        "echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting"
+        "echo 1 | sudo tee /sys/module/core/parameters/scheduler_accounting"
 }
 
 
@@ -66,7 +66,7 @@ reset_latency_sysctls_local()
     sudo sysctl -w net.core.latency_rx_sched_lat_only=0
     sudo sysctl -w net.core.latency_breakdown_nrfs=0
     sudo sysctl -w net.core.latency_breakdown_validation=0
-    sudo sysctl -w net.core.latency_dumb_schedule_weight=156
+    sudo sysctl -w net.core.latency_dumb_schedule_weight=1000
     sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0
     sudo sysctl -w net.core.latency_dumb_schedule_enable=0
     sudo sysctl -w net.core.latency_perstage_rdpmc_on=0
@@ -81,7 +81,7 @@ reset_latency_sysctls_remote()
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_rx_sched_lat_only=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_nrfs=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_validation=0"
-    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_weight=156"
+    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_weight=1000"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_enable=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_perstage_rdpmc_on=0"
