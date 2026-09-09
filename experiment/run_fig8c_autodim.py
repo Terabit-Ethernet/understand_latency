@@ -4,7 +4,7 @@ from itertools import product
 
 # Experiment Parameters:
 experiment_name = "single_core_macro_autodim"
-script_name = "single_core_macro_psched.sh"
+script_name = "single_core_macro_pcsched.sh"
 num_apps = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]
 flowsize = [64]
 iodepth = [1]

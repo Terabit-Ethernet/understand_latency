@@ -1,40 +1,77 @@
 # Understanding Host Network Stack Latency — Experiment Set
 
-Experiment set for our SIGCOMM '2026 paper "Understanding Host Network Stack Latency"
+Experiment set for our SIGCOMM 2026 paper, *"Understanding Host Network Stack Latency"*.
+
+## Table of Contents
+
+- [Prelude](#prelude)
+- [Hardware Requirements](#hardware-requirements)
+- [Software Requirements](#software-requirements)
+- [Kernel Installation](#kernel-installation)
+- [Repository Layout](#repository-layout)
+- [Artifact Evaluation Guide](#artifact-evaluation-guide)
+  - [(Optional) CloudLab Setup](#optional-cloudlab-setup)
+  - [Experiment Diagram](#experiment-diagram)
+  - [Kernel Preparation](#kernel-preparation)
+  - [Environment Preparation](#environment-preparation)
+  - [Application Modification](#application-modification)
+  - [Application and Kernel Module Compilation](#application-and-kernel-module-compilation)
+  - [Figure 2: Isolated performance of default Linux](#figure-2-isolated-performance-of-default-linux)
+  - [Figure 3-4: Latency-throughput curve and latency breakdown](#figure-3-4-latency-throughput-curve-and-latency-breakdown)
+  - [Figure 5: Virtual runtime and softIRQ packet counts](#figure-5-virtual-runtime-and-softirq-packet-counts)
+  - [Figure 7: Processing time and stall cycles for Linux with ACCa](#figure-7-processing-time-and-stall-cycles-for-linux-with-acca)
+  - [Figure 8a-8b: Latency breakdown and interrupt counts](#figure-8a-8b-latency-breakdown-and-interrupt-counts)
+  - [Figure 8c: Latency-throughput curve for AutoDIM](#figure-8c-latency-throughput-curve-for-autodim)
+  - [Figure 9-11: Latency-throughput curve with increasing in-flight requests](#figure-9-11-latency-throughput-curve-with-increasing-in-flight-requests)
+  - [Figure 12: Latency-throughput curve and breakdown with multiple CPU cores](#figure-12-latency-throughput-curve-and-breakdown-with-multiple-cpu-cores)
+  - [Figure 13: In-flight requests with multiple CPU cores](#figure-13-in-flight-requests-with-multiple-cpu-cores)
+  - [Figure 16: EEVDF performance](#figure-16-eevdf-performance)
+  - [Figure 14-15, 17: Supplementary experiments](#figure-14-15-17-supplementary-experiments)
+- [Acknowledgement](#acknowledgement)
 
 ## Prelude
-Note: This experiment set is not essential to understand the Linux network stack latency. Actually, with our [customized Linux kernel](https://github.com/Terabit-Ethernet/linux-latency), you should be able to run the latency analysis on any desired workload. This experiment set works as the reference point.
 
-Note: we provide essential data analysis tools in `parse` folder **as reference**; it's extremely difficult for us to provide end-to-end (figure level) analysis tools since the experiment results may vary across different hardware configuration.
+> [!NOTE]
+> This experiment set is not essential to understand Linux network stack latency. With our [customized Linux kernel](https://github.com/Terabit-Ethernet/linux-latency) you should be able to run the latency analysis on any workload you like; this experiment set only serves as a reference point.
 
-## Hardware Requirement
+> [!NOTE]
+> We provide the essential data analysis tools in the `parse` folder **as reference**. It is extremely difficult for us to provide end-to-end (figure-level) analysis tools, since experiment results vary across hardware configurations.
 
-There are two hardware requirements: 
-1. You must use an x86/64 CPU if you want to use the PMU programming module of ours --- You will also have to change the PMU event if you are using non-Intel CPU.
-2. You must use an Mellanox NIC, since we rely on `mlx5e` driver instrumentation to report the recorded timestampes through ftrace framework.
+## Hardware Requirements
 
-We have used the follwing hardware and software configurations for running the experiments.
+There are two hard requirements:
 
-* CPU: 2-Socket Intel Xeon Gold 6530
-* RAM: 1024 GB
-* NIC: Mellanox ConnectX-7 (400 Gbps)
-* Distro: Ubuntu 22.04
-* Others: gcc/g++ 11.4.0 and GNU Make 4.3
+1. You must use an x86-64 CPU if you want to use our PMU programming module. You will also have to change the PMU event codes if you are using a non-Intel CPU.
+2. You must use a Mellanox NIC, since we rely on `mlx5e` driver instrumentation to report the recorded timestamps through the ftrace framework.
 
-## Software Requirement
-You must uninstall all active OFED driver for NIC in your system since we rely on kernel's in-tree mlx5e driver to report the recorded timestamps when finally injectign the packet to the link.
-Please refer to [NVIDIA](https://networking-docs.nvidia.com/mlnxofedswum/24.10-5.1.6.1lts/uninstalling-the-driver) for how to uninstalling OFED drivers.
+We used the following hardware and software configuration to run the experiments:
+
+| Component | Configuration |
+| --- | --- |
+| CPU | 2-socket Intel Xeon Gold 6530 |
+| RAM | 1024 GB |
+| NIC | Mellanox ConnectX-7 (400 Gbps) |
+| Distro | Ubuntu 22.04 |
+| Toolchain | gcc/g++ 11.4.0, GNU Make 4.3 |
+
+## Software Requirements
+
+> [!IMPORTANT]
+> You must uninstall every active OFED NIC driver on your system, since we rely on the kernel's in-tree `mlx5e` driver to report the recorded timestamps when the packet is finally injected onto the link. See [NVIDIA's documentation](https://networking-docs.nvidia.com/mlnxofedswum/24.10-5.1.6.1lts/uninstalling-the-driver) for how to uninstall OFED drivers.
 
 Install the essential software:
-1. We rely on `hwstamp_ctl` and `phc2sys` to sync time between CPU and NIC, and read NIC's hardware timestamp.
-1. We rely on `sar` for CPU utilization monitoring.
-1. We rely on `trace-cmd` for resetting ftrace buffer.
+
+- `hwstamp_ctl` and `phc2sys` (from `linuxptp`) — sync time between CPU and NIC, and read the NIC hardware timestamp.
+- `sar` (from `sysstat`) — CPU utilization monitoring.
+- `trace-cmd` — resetting the ftrace buffer.
+
 ```sh
 sudo apt update
 sudo apt install linuxptp sysstat trace-cmd
 ```
 
-The expeirment requires `numpy` for data processing, and `matplotlib` for essential plotting:
+The experiments require `numpy` for data processing and `matplotlib` for the essential plotting:
+
 ```sh
 wget https://bootstrap.pypa.io/get-pip.py
 python3 get-pip.py
@@ -44,49 +81,76 @@ python3 -m pip install matplotlib
 
 ## Kernel Installation
 
-Please refer to https://github.com/Terabit-Ethernet/linux-latency for kernel installation. In this document, we will explicitely denote which kernel is required for each set of experiments.
+Please refer to https://github.com/Terabit-Ethernet/linux-latency for kernel installation. In this document we explicitly state which kernel is required for each set of experiments.
 
-Note: We recommend duplicate the clone for different kernel version since kernel compiling could be very slow, and we need to switch between different kernels. You MUST build separate kernel images for each machine. The latency monitor is keyed to the host's own IP address, which is hardcoded at compile time.
+> [!NOTE]
+> We recommend keeping a separate clone per kernel version: compiling a kernel can be very slow, and we need to switch between kernels frequently.
 
-We assume we have two kernel: one is the default (e.g., 5.10.46-default), and one is for IRQa, ACCa, and PCSched (e.g., 5.10.46-latency), which are switched by runtime parameters.
+> [!IMPORTANT]
+> You **must** build separate kernel images for each machine. The latency monitor is keyed to the host's own IP address, which is hardcoded at compile time.
+
+We assume two kernels: a default one (e.g., `5.10.46-default`) and one for IRQa, ACCa, and PCSched (e.g., `5.10.46-latency`), which are selected through runtime parameters.
+
+## Repository Layout
+
+| Path | Contents |
+| --- | --- |
+| `application/` | The test client and server applications (single-core and multi-core variants). |
+| `experiment/` | Per-figure experiment runners (`run_fig*.py`). Start here. |
+| `scripts/` | The experiment scripts that each runner invokes. |
+| `modules/` | Kernel modules: `vruntime_probe`, `softirq_packets`, `program_pmu`, `packet_dist`. |
+| `parse/` | Data analysis scripts (`parse_*.py`) and `draw_heatmap.py`. |
+| `affinity_tool/` | Helper for setting IRQ/thread CPU affinity. |
+| `env.sh` | Per-testbed settings (IPs, interface, remote host) sourced by the scripts. |
+| `host_setup.sh`, `target_setup.sh` | Client-side and server-side machine setup. |
+| `linux-6.12-latency.patch` | ACCa and PCSched patch for the Linux 6.12.66 (EEVDF) kernel. |
 
 ## Artifact Evaluation Guide
-Important: the experimental results from artifact evaluation may look different from that in our paper due to hardware differences. To fully reproduce the results in our paper, we recommend using exactly the same hardware (i.e., CPU, RAM, and NIC); that said, due to potential export control and policy issue, we might only be able to provide access to our own servers upon request.
+
+> [!IMPORTANT]
+> The experimental results from artifact evaluation may look different from those in our paper due to hardware differences. To fully reproduce the paper's results we recommend using exactly the same hardware (CPU, RAM, and NIC). That said, due to potential export control and policy issues, we may only be able to provide access to our own servers upon request.
 
 ### (Optional) CloudLab Setup
-To facilitate the artifact evaluation, we recommend using the [**r650**](https://docs.cloudlab.us/hardware.html#(part._cloudlab-clemson))) type server from CloudLab. Our experiment scripts and settings in this section will also be based on r650 server.
 
-Important: Different servers may have, most importantly, the CPU siblings mapping. If you are running experiments in other type servers, please make sure to prepare the applications correctly, following the instructions.
+To facilitate artifact evaluation, we recommend the [**r650**](https://docs.cloudlab.us/hardware.html#(part._cloudlab-clemson)) server type from CloudLab. The experiment scripts and settings in this section are based on the r650 server.
 
-The experiment will generate significant amount of data. In this artifact evaluation guide, we mount the `nvme0n1` NVMe as `/data` to store all experiment output. We omit the NVMe mount setting steps (ChatGPT should help!). If you are using a different experiment environment, you should change the output directory in the experiment script.
+> [!IMPORTANT]
+> Different servers differ in — most importantly — their CPU sibling mapping. If you run the experiments on another server type, make sure to prepare the applications correctly by following the instructions below.
 
+The experiments generate a significant amount of data. In this guide we mount the `nvme0n1` NVMe device at `/data` to store all experiment output; we omit the NVMe mount setup steps (ChatGPT should help!). If you use a different environment, change the output directory in the experiment scripts.
 
 ### Experiment Diagram
 
 <p align="center">
-  <img src="image/latency_diagram.png" width="500
-  "/>
+  <img src="image/latency_diagram.png" width="500"/>
 </p>
 
-The diagram shows the CPU layout, NIC interface and IP address for this evaluation guide based on r650 machines.
+The diagram shows the CPU layout, NIC interface, and IP addresses used in this evaluation guide, based on r650 machines.
 
 ### Kernel Preparation
-Note: do this in both server, with potentially different hardcoded parameters.
 
-We assume you have installed the kernel and drivers as we instructed before. We should have two kernel in `/boot`:
-1. `5.10.46-linux+`: This is the default Linux kernel that disable the IRQ time accounting option.
-2. `5.10.46-latency+`: This is the experimental Linux kernel with IRQ time accounting; our design (ACCa and PCSched) will work through runtime parameter settings.
+> [!NOTE]
+> Do this on both servers, with potentially different hardcoded parameters.
+
+Assuming you have installed the kernel and drivers as instructed above, you should have two kernels in `/boot`:
+
+1. `5.10.46-linux+` — the default Linux kernel, with the IRQ time accounting option disabled.
+2. `5.10.46-latency+` — the experimental Linux kernel with IRQ time accounting; our designs (ACCa and PCSched) are enabled through runtime parameters.
 
 ### Environment Preparation
-Note: Do this on both server, with potentially different scripts.
 
-1. Clone the project to `latency` under user's folder (e.g., `/users/netian` in r650 server).
+> [!NOTE]
+> Do this on both servers, with potentially different scripts.
+
+1. Clone the project into `latency` under the user's folder (e.g., `/users/netian` on an r650 server):
+
     ```sh
     cd ~
     git clone https://github.com/Terabit-Ethernet/understand_latency.git latency
     ```
 
-1. Update the env.sh to the correct physical settings. In the r650 server, the env.sh should look like below. `TARGETC` means the remote ssh server, `USER` means the ssh name for remote server, and `TARGETDIR` means the user's folder where `latency` project lies in the remote server. We assume `INTF` in both sides to be same; if not, please set them independently.
+2. Update `env.sh` with the correct physical settings. On the r650 server, `env.sh` should look like the following. `TARGETC` is the remote SSH host, `USER` is the SSH user name on the remote server, and `TARGETDIR` is the user folder where the `latency` project lives on the remote server. We assume `INTF` is the same on both sides; if not, set them independently.
+
     ```sh
     HOST=192.168.1.101
     TARGET=192.168.1.102
@@ -96,9 +160,10 @@ Note: Do this on both server, with potentially different scripts.
     TARGETDIR=/users/netian
     ```
 
-1. Run `host_setup.sh` on the Client side, and run `target_setup.sh` in the server side. These script will setup the CPU affinity to NIC's interrupt channel, aRFS, GRO, and other optimization we used in our experiment. Note: You should keep the ssh window open to make sure `phc2sys` alive; we recommend using `tmux`, see [Tmux Cheat Sheet](https://tmuxcheatsheet.com/) for usage.
+3. Run `host_setup.sh` on the client side and `target_setup.sh` on the server side. These scripts set up the CPU affinity for the NIC interrupt channels, aRFS, GRO, and the other optimizations we used in our experiments.
+
     ```sh
-    # Optional: Use tmux
+    # Optional: use tmux
     tmux new -s setup
 
     # Client side
@@ -107,22 +172,23 @@ Note: Do this on both server, with potentially different scripts.
     ./target_setup.sh
     ```
 
+    > [!NOTE]
+    > Keep the SSH window open so that `phc2sys` stays alive. We recommend using `tmux`; see the [Tmux Cheat Sheet](https://tmuxcheatsheet.com/) for usage.
+
 ### Application Modification
 
-Note: Do this on both servers.
+> [!NOTE]
+> Do this on both servers. While not recommended, you can skip this part if you are using CloudLab r650.
 
-Note: While not recommended, if you are using CloudLab r650, you can skip this part.
+We enable hyper-threading by default. As shown in the experiment diagram, for a selected physical CPU core we pin application threads to its two logical cores (siblings). The sibling numbering differs across CPU hardware.
 
-We enable hyper-threading by default. As shown in the experiment diagram, for a selected physical CPU core, we need to pin application threads to its two logical cores (siblings). With different CPU hardware, siblings number could be different.
-
-We recommend using `lstopo` to check the CPU siblings, as well as choosing the CPU within the same NUMA of NIC. Below shows the example of `lstopo` on r650 server:
+We recommend using `lstopo` to check the CPU siblings, and to choose CPUs on the same NUMA node as the NIC. Below is an example of `lstopo` output on an r650 server:
 
 <p align="center">
-  <img src="image/lstopo.png" width="500
-  "/>
+  <img src="image/lstopo.png" width="500"/>
 </p>
 
-In this example, the NIC we are using is `enp202s0f0np0`, therefore we choose to use the same-NUMA CPUs L#36~L#71. Their logical core are:
+In this example the NIC is `enp202s0f0np0`, so we use the same-NUMA CPUs L#36–L#71. Their logical cores are:
 
 ```plain
 L#36: 1, 73
@@ -130,34 +196,41 @@ L#37: 3, 75
 ...
 ```
 
-So when we say "single core", it means using the two logical core (e.g., core 1 and core 73) within a physical core (e.g., L#36).
+So when we say "single core", we mean the two logical cores (e.g., core 1 and core 73) of one physical core (e.g., L#36).
 
-The `cpu_list` in the test application (i.e., in `./application` folder) and `TASKSET` in the test script (i.e., in `scripts` folder) should be changed accordingly. Note they use differnet interleaving format, in this r650 example, they should be:
+`cpu_list` in the test application (in `application/`) and `TASKSET` in the test scripts (in `scripts/`) must be changed accordingly. Note that they use different interleaving formats; in this r650 example they would be:
+
 ```c++
 cpu_list[32] = {1, 73, 3, 75, 5, 77, 7, 79, ...};
-TASKSET="1,73" // Single Core
-TASKSET="1,3,5,7,....73,75,77,79,..." // Multiple Cores
-
+TASKSET="1,73"                                  // Single core
+TASKSET="1,3,5,7,....73,75,77,79,..."           // Multiple cores
 ```
 
-Note: Please make sure you have also changed the hardcoded CPU core numbers used to filter stashing measurement results in the kernel, as directed in the kernel repo.
+> [!IMPORTANT]
+> Make sure you have also changed the hardcoded CPU core numbers used to filter stashing measurement results in the kernel, as directed in the kernel repo.
 
 ### Application and Kernel Module Compilation
-Note: You should do this on both servers.
+
+> [!NOTE]
+> Do this on both servers.
 
 Compile the test application:
+
 ```sh
-cd ./application && make && make -j$(nproc)
+cd application && make -j$(nproc)
 ```
 
-### Figure 2: the isolated performance for default Linux
-1. Reboot to `5.10.46-linux+` (Default Linux) kernel:
+### Figure 2: Isolated performance of default Linux
+
+1. Reboot into the `5.10.46-linux+` (default Linux) kernel:
+
     ```sh
     sudo grub-reboot "Advanced options for Ubuntu>Ubuntu, with Linux 5.10.46-linux+"
     sudo reboot
     ```
 
-2. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig2_default.py`:
+2. (Optional) Adjust the experiment settings (e.g., the number of runs) in the experiment runner `experiment/run_fig2_default.py`:
+
     ```python
     experiment_name = "isolated_thread_default"
     script_name = "single_core_macro_default.sh"
@@ -171,84 +244,105 @@ cd ./application && make && make -j$(nproc)
     runs = [0, 1, 2]
     ```
 
-3. Run the experiment runner. We recommend using tmux to avoid progress loss.
-    ```shell
-    cd ./experiment
-    tmux new -s experiment # Optional tmux
+3. Run the experiment runner. We recommend using tmux to avoid losing progress.
+
+    ```sh
+    cd experiment
+    tmux new -s experiment   # Optional
     python3 run_fig2_default.py
     ```
 
-Note: Each run of the experiment takes about 5mins of application running and about 1min of data stashing. With 3 runs in this experiment, it takes ~18mins in total.
-
+> [!NOTE]
+> Each run takes about 5 minutes of application runtime plus about 1 minute of data stashing. With 3 runs, this experiment takes ~18 minutes in total.
 
 #### Evaluation and Data Parse
-1. **Experiment** results will be located at `/data/projects/latency/isolated_thread_default/` by default. In this experiment, we have 3 runs, 5 mins per run. For example, the result folder should look like:
+
+1. **Experiment** results are located at `/data/projects/latency/isolated_thread_default/` by default. This experiment has 3 runs of 5 minutes each, so the result folder should look like:
+
     ```sh
     netian@node0:/data/projects/latency/isolated_thread_default$ ls
     1_64_1_0_1_1_1_0  1_64_1_0_1_1_1_1  1_64_1_0_1_1_1_2
     ```
 
-1. For each run, the throughput, the latency (average, P50, and P99.9), and the raw latency breakdown timestamps will be recorded in `throughput.log`, `latency.log`, and `latencies-1.log` for client side and `latencies-1-server.log` for server side. For example:
+2. For each run, the throughput, the latency (average, P50, and P99.9), and the raw latency breakdown timestamps are recorded in `throughput.log`, `latency.log`, and `latencies-1.log` (client side) / `latencies-1-server.log` (server side). For example:
+
     ```sh
     netian@node0:/data/projects/latency/isolated_thread_default/1_64_1_0_1_1_1_2$ cat throughput.log
     53085.7 # Throughput = 53085.7 IOPS = 0.053 mIOPS
-    netian@node0:/data/projects/latency/isolated_thread_default/1_64_1_0_1_1_1_2$ cat latency.log 
+    netian@node0:/data/projects/latency/isolated_thread_default/1_64_1_0_1_1_1_2$ cat latency.log
     18.1494 23 34 # Average = 18.1494, P50 = 23, P99 = 34
     ```
-    Note: the results may vary significantly compared to the results in our paper due to hardware differences.
 
-1. We also record the end-to-end latency distribution for each thread in `netperf-{#thread}_hist.bin`. To obtain the experiment-level P99.9 latency, we merge the latency distributions across all runs before computing the percentile, rather than averaging the P99.9 values from individual runs.
+    > [!NOTE]
+    > The results may vary significantly from those in our paper due to hardware differences.
 
-1. To get the average throughput, average latency and P99.9 tail latency (Figure 2-a) for each **experiment**, change the configuration in `parse/parse_single_core_latency_throughput` to the experient results folder:
+3. We also record the end-to-end latency distribution for each thread in `netperf-{#thread}_hist.bin`. To obtain the experiment-level P99.9 latency we merge the latency distributions across all runs before computing the percentile, rather than averaging the per-run P99.9 values.
+
+4. To get the average throughput, average latency, and P99.9 tail latency (Figure 2a) for each **experiment**, point `parse/parse_single_core_latency_throughput.py` at the experiment results folder:
+
     ```python
     # Configuration:
     result_dir = "/data/projects/latency"
     # Experiments to parse. Leave empty to parse every experiment found in result_dir.
     experiments = ["isolated_thread_default"]
     ```
+
     and run the script:
+
     ```sh
     cd parse && python3 parse_single_core_latency_throughput.py
     ```
-    the output should look like:
+
+    The output should look like:
+
     ```plain
-    netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py 
+    netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py
     # isolated_thread_default
     num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_MIOPS
     --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------
         1        64        1    0    1        1      1     3       18.146       34.000     0.05312
     ```
 
-1. To get the heatmap for the **experiment** (Figure 2-b), we first need to run `parse/parse_breakdown_to_heatmap.py` to parse the tail region (P99.8-P100) end-to-end latency as a numpy .npy file. Change the configuration in the `parse/parse_breakdown_to_heatmap.py` as:
+5. To get the heatmap for the **experiment** (Figure 2b), first run `parse/parse_breakdown_to_heatmap.py` to parse the tail region (P99.8–P100) end-to-end latency into a NumPy `.npy` file. Set the configuration in `parse/parse_breakdown_to_heatmap.py` to:
+
     ```python
     result_dir = "/data/projects/latency"
     experiments = ["isolated_thread_default"]
     prefixes = ["1_64_1_0_1_1_1_"]
     ```
+
     and run the script:
+
     ```sh
     cd parse && python3 parse_breakdown_to_heatmap.py
     ```
-    It may takes ~2mins for processing to finish. After that, we will see the npy file in the experiment folder:
+
+    Processing may take ~2 minutes. Afterwards you will see the `.npy` file in the experiment folder:
+
     ```plain
     netian@node0:/data/projects/latency/isolated_thread_default$ ls
     1_64_1_0_1_1_1_0  1_64_1_0_1_1_1_2
     1_64_1_0_1_1_1_1  heatmap_isolated_thread_default_1_64_1_0_1_1_1.npy
     ```
+
     Then run `parse/draw_heatmap.py` to generate the heatmap:
+
     ```sh
     python3 draw_heatmap.py \
-    /data/projects/latency/isolated_thread_default/heatmap_isolated_thread_default_1_64_1_0_1_1_1.npy \
-    -o heatmap_isolated_thread_default.pdf \
-    --cap 10
+      /data/projects/latency/isolated_thread_default/heatmap_isolated_thread_default_1_64_1_0_1_1_1.npy \
+      -o heatmap_isolated_thread_default.pdf \
+      --cap 10
     ```
 
-Note: We are unable to provide the full plotting script for artifact evaluation since that will introduce significant workload for code re-organization; we believe the first priority of artifact evaluation is on the functionality (to produce the data needed for plotting), rather than plotting-level reproducibility. Nevertheless, if you are interested, you can refer to [Github](https://github.com/amefumi/understand_latency/tree/main/analysis) for (partial) scripts we used to analysis the data and plot the figures.
+> [!NOTE]
+> We are unable to provide the full plotting scripts for artifact evaluation, since that would require significant code reorganization; we believe the first priority of artifact evaluation is functionality (producing the data needed for plotting) rather than plotting-level reproducibility. Nevertheless, if you are interested, you can refer to [GitHub](https://github.com/amefumi/understand_latency/tree/main/analysis) for the (partial) scripts we used to analyze the data and plot the figures.
 
+### Figure 3-4: Latency-throughput curve and latency breakdown
 
-### Figure 3-4: The latency-throughput curve and latency breakdown for Linux, Linux+IRQa, Linux+ACCa, and Linux+PCSched
+Latency-throughput curve and latency breakdown for Linux, Linux+IRQa, Linux+ACCa, and Linux+PCSched.
 
-1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig3_4_{default,irqa,acca,pcsched}.py`:
+1. (Optional) Adjust the experiment settings (e.g., the number of runs) in the experiment runners `experiment/run_fig3_4_{default,irqa,acca,pcsched}.py`:
+
     ```python
     experiment_name = ...
     script_name = ...
@@ -262,30 +356,38 @@ Note: We are unable to provide the full plotting script for artifact evaluation 
     runs = [0, 1, 2]
     ```
 
-1. Run `experiment/run_fig3_4_default.py` under `5.10.46-linux+` (Default Kernel); 
+2. Run `experiment/run_fig3_4_default.py` under `5.10.46-linux+` (default kernel).
 
-1. Switch the kernel to `5.10.46-latency+` (assuming its already installed on `/boot`):
+3. Switch to the `5.10.46-latency+` kernel (assuming it is already installed in `/boot`):
+
     ```sh
     sudo grub-reboot "Advanced options for Ubuntu>Ubuntu, with Linux 5.10.46-latency+"
     sudo reboot
     ```
-    Note that after each time you reboot the server, you have to repeat the Step 3 in Environment Preparation Section, i.e., the `host_setup.sh` and `target_setup.sh`.
 
-1. Run `experiment/run_fig3_4_irqa.py`, `experiment/run_fig3_4_acca.py`, and `experiment/run_fig3_4_pcsched.py` under `5.10.46-latency+` (Customized Kernel)
+    > [!IMPORTANT]
+    > After every reboot you must repeat step 3 of [Environment Preparation](#environment-preparation), i.e., run `host_setup.sh` and `target_setup.sh` again.
 
-Note: This experiment takes significant time. To reduce the waiting time, you can decrease the number of runs, or the time for each run. In r650 server, the knee point is ~36 threads.
+4. Run `experiment/run_fig3_4_irqa.py`, `experiment/run_fig3_4_acca.py`, and `experiment/run_fig3_4_pcsched.py` under `5.10.46-latency+` (customized kernel).
+
+> [!NOTE]
+> This experiment takes a significant amount of time. To reduce the waiting time you can decrease the number of runs or the duration of each run. On the r650 server, the knee point is at ~36 threads.
 
 #### Evaluation and Data Parse
-1. After all four experiments in this part finish, you should see results dir `single_core_macro_default`, `single_core_macro_irqa`, `single_core_macro_acca`, and `single_core_macro_pcsched` in `/data/project/latency` dir.
 
-1. To get the latency-throughput curve (Figure 3), change the configuration in `parse/parse_single_core_latency_throughput` and run it for **each experiment** in this section, as directed before. For example, we need to adjust the parameter for default Linux as:
+1. After all four experiments in this part finish, you should see the result directories `single_core_macro_default`, `single_core_macro_irqa`, `single_core_macro_acca`, and `single_core_macro_pcsched` under `/data/projects/latency`.
+
+2. To get the latency-throughput curve (Figure 3), change the configuration in `parse/parse_single_core_latency_throughput.py` and run it for **each experiment** in this section, as described above. For example, for default Linux:
+
     ```python
     result_dir = "/data/projects/latency"
     experiments = ["single_core_macro_default"]
     ```
-1. Then run the parse script, which will parse the data needed to plot the latency-throughput curve figure:
+
+3. Then run the parse script, which produces the data needed to plot the latency-throughput curve:
+
     ```plain
-    netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py 
+    netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py
     # single_core_macro_default
     num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_mIOPS  client_intr  server_intr
     --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------  -----------  -----------
@@ -315,17 +417,23 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
         44        64        1    1    1        1      1     3      185.738     2325.000     0.23602        66872        66200
     ```
 
-1. To get the heatmap (Figure 4) at the knee point, change the configuration in `parse/parse_breakdown_to_heatmap.py` and run it for **each experiment** on its knee point (this means you should first identify the knee point through step 1, and set the **prefix** to the knee point runs). Then draw the heatmap for each generated npy file, as directed in the Figure 2 experiment:
+4. To get the heatmap (Figure 4) at the knee point, change the configuration in `parse/parse_breakdown_to_heatmap.py` and run it for **each experiment** at its knee point. (This means you should first identify the knee point in step 3, then set **`prefixes`** to the knee-point runs.) Then draw the heatmap for each generated `.npy` file, as described in the Figure 2 experiment:
+
     ```sh
     python3 draw_heatmap.py \
-    /data/projects/latency/single_core_macro_default/heatmap_single_core_macro_default_36_64_1_1_1_1_1.npy \
-    -o single_core_macro_default.pdf \
-    --cap 1500
+      /data/projects/latency/single_core_macro_default/heatmap_single_core_macro_default_36_64_1_1_1_1_1.npy \
+      -o single_core_macro_default.pdf \
+      --cap 1500
     ```
 
-### Figure 5: (Modeled) virtual runtime and packets processed in softIRQ for Linux, Linux+ACCa, and Linux+PCSched
+### Figure 5: Virtual runtime and softIRQ packet counts
 
-1. Change the number of threads in `experiment/run_fig5_{default,acca,pcsched}.py to the knee point.
+(Modeled) virtual runtime and packets processed in softIRQ for Linux, Linux+ACCa, and Linux+PCSched.
+
+We use kernel modules to probe the virtual runtime of threads (`vruntime_probe`) and the packets handled in softIRQ (`softirq_packets`).
+
+1. Change the number of threads in `experiment/run_fig5_{default,acca,pcsched}.py` to the knee point:
+
     ```python
     experiment_name = "single_core_understand_{default,acca,pcsched}"
     script_name = "single_core_understand_{default,acca,pcsched}.sh"
@@ -339,37 +447,45 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
     runs = [0, 1, 2]
     ```
 
-1. We use kernel modules to probe the virutal runtime of threads (`vruntime_probe`) and the packets handled in softIRQ (`softirq_packets`).
+2. In `scripts/single_core_understand_{default,acca,pcsched}.sh`, change the CPU logical core monitored by the vruntime probe module to one of the cores you are using (i.e., 73 in the r650 case):
 
-1. In `script/sing_core_understand_{default,acca,pcsched}.sh`, change the monitored CPU logical core of vruntime probe module to the one of the cores we are using (i.e., 73 in r650 case).
     ```sh
     sudo insmod ../modules/vruntime_probe.ko sample_cpu=73 total_count=300 interval_ms=1000
     ```
 
-1. The kernel modules will output to the Kernel Ring Buffer (that you usually check with `dmesg`). We stash the log with `dmesg` in the `script/sing_core_understand_{default,acca,pcsched}.sh` script. If you adjust the experiment time, you will also need to adjust how many lines should be trimmed:
-    ```sh
-    sudo tail -n 1000  /var/log/kern.log > $DIR/iter_thread_client.log
-    ```
-    `vruntime_probe` generates 2 lines per second, `softirq_packets` generate 2 lines per 10 seconds, but we recommend adding 30% slack to avoid trimming by other services.
+3. The kernel modules write to the kernel ring buffer (the one you normally read with `dmesg`). We stash the log in `scripts/single_core_understand_{default,acca,pcsched}.sh`. If you adjust the experiment duration, you also need to adjust how many lines are trimmed:
 
-1. In `modules/softirq_packets.c`, change the monitored CPU logical core of packets processed in softIRQ probe module to the one of the cores we are using (i.e., 73 in r650 case). Note that in the server side, you need to first uncommet the `COUNTING_SERVER_SIDE` for the netfilter to match the correct IP:
+    ```sh
+    sudo tail -n 1000 /var/log/kern.log > $DIR/iter_thread_client.log
+    ```
+
+    `vruntime_probe` generates 2 lines per second and `softirq_packets` generates 2 lines per 10 seconds, but we recommend adding 30% slack to avoid trimming caused by other services.
+
+4. In `modules/softirq_packets.c`, change the CPU logical core monitored by the softIRQ packet probe module to one of the cores you are using (i.e., 73 in the r650 case).
+
     ```c
     #define FILTER_OUTPUT_CPUS(x) (x == 1 || x == 73)
     #define FILTER_PRINT_CPUS(x) (x == 73)
-    // #define COUNTING_SERVER_SIDE // <- Uncomment this line in server (target) side
+    // #define COUNTING_SERVER_SIDE // <- Uncomment this line on the server (target) side
     ```
 
-1. Re-compile the modules on both side **each time you changed the kernel**, or there will be compatibility issue:
+    > [!IMPORTANT]
+    > On the server side you must first uncomment `COUNTING_SERVER_SIDE` so that the netfilter hook matches the correct IP.
+
+5. Recompile the modules on both sides **every time you change the kernel**, otherwise you will hit compatibility issues:
+
     ```sh
     cd modules && make
     ```
 
-1. Swithc the kernel to `5.10.46-linux+` (default Linux) on both side. Run the experiment:
+6. Switch to the `5.10.46-linux+` (default Linux) kernel on both sides and run the experiment:
+
     ```sh
     python3 run_fig5_default.py
     ```
 
-1. Switch the kernel to `5.10.46-latency+` (customized Linux) on both side. Run the experiment for ACCa and PCSched:
+7. Switch to the `5.10.46-latency+` (customized Linux) kernel on both sides and run the experiments for ACCa and PCSched:
+
     ```sh
     python3 run_fig5_acca.py
     python3 run_fig5_pcsched.py
@@ -377,30 +493,32 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
 
 #### Evaluation and Data Parse
 
-1. Change the configurations in `parse/parse_understand_default.py` to the experiment result dir (one run specific) of default Linux:
+1. Change the configuration in `parse/parse_understand_default.py` to the experiment result directory (specific to one run) of default Linux:
+
     ```python
     result_dir = "/data/projects/latency/"
     experiment = "single_core_understand_default/36_64_1_1_1_1_1_0"
     n_thread = 36
     ```
 
-2. Run the `parse/parse_understand_default.py`. You will get the P99.9 tail latency, virtual runtime, and number of packets processed in softIRQ for both client and server side of a connection (thread).
+2. Run `parse/parse_understand_default.py`. You will get the P99.9 tail latency, virtual runtime, and number of packets processed in softIRQ for both the client and server side of a connection (thread).
 
-3. Repeat step 1 and 2 for `parse/parse_understand_acca.py` and `parse/parse_understand_pcsched.py` for Linux + ACCa (P99.9 tail latency, virtual runtime, modeled virtual runtime, and #packets in softIRQ), and Linux + PCSched (P99.9 tail latency, #packets in softIRQ)
+3. Repeat steps 1 and 2 with `parse/parse_understand_acca.py` for Linux+ACCa (P99.9 tail latency, virtual runtime, modeled virtual runtime, and number of packets in softIRQ) and `parse/parse_understand_pcsched.py` for Linux+PCSched (P99.9 tail latency and number of packets in softIRQ).
 
+### Figure 7: Processing time and stall cycles for Linux with ACCa
 
-### Figure 7: Processing Time vs Stall Cycles for Linux+ACCa
+1. We use an Intel CPU as the example. Check the CPU model name:
 
-1. We use Intel CPU as example. Check the CPU model name:
     ```sh
-    lscpu |grep "Model name"
+    lscpu | grep "Model name"
     ```
 
-1. Check the CPU model's "Code Name" (family) in Intel's manual. For example, r650 server has "Intel(R) Xeon(R) Platinum 8360Y" CPU, whose family is "Ice Lake"
+2. Look up the CPU model's code name (family) in Intel's manual. For example, the r650 server has an "Intel(R) Xeon(R) Platinum 8360Y" CPU, whose family is "Ice Lake".
 
-1. Check the performance monitoring event for the CPU family at [PerfMon Events Documentation](https://perfmon-events.intel.com/)
+3. Look up the performance monitoring events for that CPU family in the [PerfMon Events Documentation](https://perfmon-events.intel.com/).
 
-1. Change the event code for `CYCLE_ACTIVITY.STALLS_TOTAL` and `CYCLE_ACTIVITY.STALLS_L1D_MISS` in `modules/program_pmu.c` to the codes in the documentation since it may vary across different families:
+4. Change the event codes for `CYCLE_ACTIVITY.STALLS_TOTAL` and `CYCLE_ACTIVITY.STALLS_L1D_MISS` in `modules/program_pmu.c` to the codes from the documentation, since they vary across families:
+
     ```c
     static const struct counter_cfg counters[NUM_COUNTERS] = {
         { "CYCLE_ACTIVITY.STALLS_TOTAL",
@@ -410,25 +528,30 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
     };
     ```
 
-1. Switch the kernel to `5.10.46-latency+` (our customized kernel)
-1. Compile the `program_pmu` module on the client side. You should re-compile the module **every time you change the kernel**:
+5. Switch to the `5.10.46-latency+` (customized) kernel.
+
+6. Compile the `program_pmu` module on the client side. You must recompile the module **every time you change the kernel**:
+
     ```sh
     cd modules && make
     ```
 
-1. Disable NMI watchdog on the client side before installing the module to avoid performance monitor counter overlap; you should also not use Linux perf during this experiment:
+7. Disable the NMI watchdog on the client side before installing the module, to avoid performance monitoring counter overlap. You should also not use Linux `perf` during this experiment:
+
     ```sh
     echo 0 | sudo tee /proc/sys/kernel/nmi_watchdog
     ```
 
-1. Install the `program_pmu` module in the client side:
+8. Install the `program_pmu` module on the client side:
+
     ```sh
     cd modules
     sudo rmmod program_pmu
     sudo insmod program_pmu.ko cpus=1,73
     ```
 
-1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig7_acca.py`:
+9. (Optional) Adjust the experiment settings (e.g., the number of runs) in the experiment runner `experiment/run_fig7_acca.py`:
+
     ```python
     experiment_name = "single_core_rdpmc_acca"
     script_name = "single_core_rdpmc_acca.sh"
@@ -442,19 +565,25 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
     runs = [0, 1, 2]
     ```
 
-1. Run `experiment/run_fig7_acca.py` under `5.10.46-latency+` (customized kernel)
+10. Run `experiment/run_fig7_acca.py` under `5.10.46-latency+` (customized kernel).
 
 #### Evaluation and Data Parse
-1. After the experiments finishes, you should see result dir `single_core_rdpmc_acca` in `/data/project/latency` dir. Select one run from the dir and change the configuration in `parse/parse_rdpmc_acca.py`:
+
+1. After the experiment finishes you should see the result directory `single_core_rdpmc_acca` under `/data/projects/latency`. Select one run from the directory and change the configuration in `parse/parse_rdpmc_acca.py`:
+
     ```python
     result_dir = "/data/projects/latency/"
     experiment = "single_core_rdpmc_acca/36_64_1_1_1_1_1_0"
     n_thread = 36
     ```
 
-1. Run the `parse/parse_rdpmc_acca.py`. The output should look like below. `{cli,srv}_time` is the client/server-side processing time, `{cli,srv}_stall` is the stall cycles, and `{cli,srv}_stall_l1d` is the stall cycles when there is at least one outstanding L1d miss. Note only half of the ports belong the same logical core, and the remaining half belongs to its sibling logical core.
+2. Run `parse/parse_rdpmc_acca.py`. The output should look like the block below. `{cli,srv}_time` is the client/server-side processing time, `{cli,srv}_stall` is the stall cycles, and `{cli,srv}_stall_l1d` is the stall cycles during which at least one L1d miss is outstanding.
+
+    > [!NOTE]
+    > Only half of the ports belong to the same logical core; the remaining half belong to its sibling logical core.
+
     ```plain
-    netian@node0:~/latency/parse$ python3 parse_rdpmc_acca.py 
+    netian@node0:~/latency/parse$ python3 parse_rdpmc_acca.py
     port  cli_time  cli_stall  cli_stall_l1d  srv_time  srv_stall  srv_stall_l1d
     -----------------------------------------------------------------------------
     10000    1995.0     2814.0          374.7    1868.2     2573.9          354.3
@@ -497,17 +626,20 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
     [STATS] server: 36 threads, processing time 1831.8 .. 1888.0 ns, gap 56.3 ns
     ```
 
-### Figure 8a-8b: Latency breakdown at certain point and 
-1. You should be able to get the latency breakdown heatmap and the number of interrupt in both server and client side (`server_intr` and `client_intr`) at any point by performing the steps in Figure 3-4 part.
+### Figure 8a-8b: Latency breakdown and interrupt counts
 
-### Figure 8c: The latency-throughput curve for AutoDIM
+You can obtain the latency breakdown heatmap and the number of interrupts on both the server and client side (`server_intr` and `client_intr`) at any load point by following the steps in the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) part.
 
-Important: as we state in our paper, the AutoDIM sets "the minimum packet threshold and the maximum timeout before triggering an interrupt (i.e., `rx_frames` and `rx_usecs`) to half of the total in-flight packets across threads on a single logical core and the corresponding total processing time." However, different hardware configuration leads to different processing time, thus different hyper-parameter (i.e., average processing time per-packet). We leave this hyper-parameter tuning to the exerciser.
+### Figure 8c: Latency-throughput curve for AutoDIM
 
-1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig8c_autodim.py`:
+> [!IMPORTANT]
+> As stated in our paper, AutoDIM sets "the minimum packet threshold and the maximum timeout before triggering an interrupt (i.e., `rx_frames` and `rx_usecs`) to half of the total in-flight packets across threads on a single logical core and the corresponding total processing time." Different hardware configurations lead to different processing times, and therefore to a different hyper-parameter (i.e., the average per-packet processing time). We leave this hyper-parameter tuning to the exerciser.
+
+1. (Optional) Adjust the experiment settings (e.g., the number of runs) in the experiment runner `experiment/run_fig8c_autodim.py`:
+
     ```python
     experiment_name = "single_core_macro_autodim"
-    script_name = "single_core_macro_psched.sh"
+    script_name = "single_core_macro_pcsched.sh"
     num_apps = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]
     flowsize = [64]
     iodepth = [1]
@@ -518,35 +650,39 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
     runs = [0, 1, 2]
     ```
 
-1. Run `experiment/run_fig8c_autodim.py` under `5.10.46-latency+` (customized kernel)
+2. Run `experiment/run_fig8c_autodim.py` under `5.10.46-latency+` (customized kernel).
 
 #### Evaluation and Data Parse
-1. After all four experiments in this part finish, you should see result dir `single_core_macro_autodim` in `/data/project/latency` dir.
 
-1. Parse the experiment with directions in Figure 3-4 part.
+1. After the experiment finishes you should see the result directory `single_core_macro_autodim` under `/data/projects/latency`.
+
+2. Parse the experiment following the directions in the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) part.
 
 ### Figure 9-11: Latency-throughput curve with increasing in-flight requests
-1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig9_10_{default,acca,pcsched}.py`.
 
-1. Run `experiment/run_fig9_10_default.py` under `5.10.46-linux+` (default Linux).
+1. (Optional) Adjust the experiment settings (e.g., the number of runs) in the experiment runners `experiment/run_fig9_10_{default,acca,pcsched}.py`.
 
-1. Run `experiment/run_fig9_10_acca.py` and `experiment/run_fig9_10_pcsched.py` under `5.10.46-latency+` (customized kernel).
+2. Run `experiment/run_fig9_10_default.py` under `5.10.46-linux+` (default Linux).
+
+3. Run `experiment/run_fig9_10_acca.py` and `experiment/run_fig9_10_pcsched.py` under `5.10.46-latency+` (customized kernel).
 
 #### Evaluation and Data Parse
 
-1. The experiment results will be located at `single_core_iodepth_default`, `single_core_iodepth_acca`, and `single_core_iodepth_pcshed` folder in `/data/projects/latency`.
+1. The experiment results are located in the `single_core_iodepth_default`, `single_core_iodepth_acca`, and `single_core_iodepth_pcsched` folders under `/data/projects/latency`.
 
-1. You should be able to get the latency-throughput curve data by running the script in Figure 3-4 part---Just rememeber to change the configurations.
+2. You can obtain the latency-throughput curve data by running the script from the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) part — just remember to change the configuration.
 
-1. As we mentioned in our paper, due to batching, we are only able to measure the `rx_sched` latency when there are multiple in-flight requests per connection. Change the configuration of `parse/parse_iodepth_rxsched.py`:
+3. As mentioned in our paper, due to batching we can only measure the `rx_sched` latency when there are multiple in-flight requests per connection. Change the configuration in `parse/parse_iodepth_rxsched.py`:
+
     ```python
     result_dir = "/data/projects/latency"
     experiments = ["single_core_iodepth_acca"]
     ```
 
-1. Run `parse/parse_iodepth_rxsched.py`, the script will output the client-side and server-side P99.9 `rx_sched` latency. For example, for Linux + ACCa, the results may look like:
+4. Run `parse/parse_iodepth_rxsched.py`. The script outputs the client-side and server-side P99.9 `rx_sched` latency. For example, for Linux+ACCa the results may look like:
+
     ```plain
-    netian@node0:~/latency/parse$ python3 parse_iodepth_rxsched.py 
+    netian@node0:~/latency/parse$ python3 parse_iodepth_rxsched.py
     # single_core_iodepth_acca
     num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  client_samples  server_samples  client_p999  server_p999
     --------  --------  -------  ---  ---  -------  -----  ----  --------------  --------------  -----------  -----------
@@ -554,16 +690,18 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
     ......
     ```
 
-1. Change the configurations in `parse/parse_iodepth_segments.py` to the interested experiments and runs prefix:
+5. Change the configuration in `parse/parse_iodepth_segments.py` to the experiments and run prefixes you are interested in:
+
     ```python
     result_dir = "/data/projects/latency"
     experiments = ["single_core_iodepth_acca"]
     prefixes = ["2_64_32_1_1_1_1_"]
     ```
 
-1. Run the `parse/parse_iodepth_segments.py`. The first column is the number of requests per segment, and the second is the CDF to the number. For example:
+6. Run `parse/parse_iodepth_segments.py`. The first column is the number of requests per segment and the second is the CDF at that value. For example:
+
     ```plain
-    netian@node0:~/latency/parse$ python3 parse_iodepth_segments.py 
+    netian@node0:~/latency/parse$ python3 parse_iodepth_segments.py
     ## single_core_iodepth_acca/2_64_32_1_1_1_1 (2 run(s))
     # client: 67463583 samples
     0 0.0
@@ -580,19 +718,19 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
     ......
     ```
 
-### Figure 12: Latency-throughput curve and latency breakdown with multiple CPU cores
+### Figure 12: Latency-throughput curve and breakdown with multiple CPU cores
 
-1. CPU list we are using:
+1. If you use different CPU cores, or your logical core numbering differs, you must change the configuration in the experiment scripts (`scripts/multi_cores_macro_{default,acca,pcsched}.sh`), the server-side experiment helper (`scripts/multi_cores_helper.sh`), and the experiment runners (`experiment/run_fig12_{default,acca,pcsched}.py`) — specifically `TASKSET`, `THREADS_PER_CORE`, and `cores`.
 
-1. If you are using different CPU cores or have different logical core number, you will have to change the configuration in the experiment script (`scripts/multi_cores_macro_{default,acca,pcsched}.sh`), the server-side experiment helper (`scripts/multi_cores_helper.sh`), and the experiment runner (`experiment/run_fig12_acca.py`), including the `TASKSET`, `THREADS_PER_CORE`, and `cores`.
+2. In that case you also need to change the client-side application core offset. Locate the following lines in `application/latency_client_cores.cc`, change the `core_offset` calculation to match the `TASKSET` you use, and recompile the application:
 
-1. If you are using different CPU cores or have different logical core number, you will also need to change the client-side application core offset. Locate the following lines in `application/latency_client_cores.cc`, and change the `core_offset` calculation to match the `TASKSET` you use, and re-compile the application.
-    ```c
-	int core_offset = sc < 48? (sc - 32): (sc - 96 + 16);
-	int starting_index = core_offset * thread_count;
+    ```c++
+    int core_offset = sc < 48 ? (sc - 32) : (sc - 96 + 16);
+    int starting_index = core_offset * thread_count;
     ```
 
-1. (Optional) Change the configurations in `experiment/run_fig12_{default,acca,pcsched}.py`:
+3. (Optional) Change the configuration in `experiment/run_fig12_{default,acca,pcsched}.py`:
+
     ```python
     num_apps = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]
     flowsize = [64]
@@ -600,39 +738,44 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
     dim = [0, 1]
     pin = [1]
     permute = [1]
-    # NOTE: Unfortunately, the script is hardcoded to use 16 physical cores. 
+    # NOTE: Unfortunately, the script is hardcoded to use 16 physical cores.
     # If you want to use a different number of cores, you will need to modify the
     # script, the helper, and application, and this runner script accordingly.
     cores = [16]
     runs = [0, 1, 2]
     ```
 
-1. Run the experiment with `experiment/run_fig12_default.py` under `5.10.46-linux+` (default Linux).
+4. Run the experiment with `experiment/run_fig12_default.py` under `5.10.46-linux+` (default Linux).
 
-1. Run the experiment with `experiment/run_fig12_{acca,pcsched}.py` under `5.10.46-latency+` (our customized Kernel).
+5. Run the experiment with `experiment/run_fig12_{acca,pcsched}.py` under `5.10.46-latency+` (customized kernel).
 
 #### Evaluation and Data Parse
 
-1. The results of this experiment should be at `multi_cores_macro_{default,acca,psched}` folder at `/data/project/latency`. Change the configuration in `parse/parse_multi_cores_latency_throughput.py` to the correct results directory. For example:
+1. The results of this experiment are in the `multi_cores_macro_{default,acca,pcsched}` folders under `/data/projects/latency`. Change the configuration in `parse/parse_multi_cores_latency_throughput.py` to the correct results directory. For example:
+
     ```python
     result_dir = "/data/projects/latency"
     experiments = ["multi_cores_macro_acca"]
     ```
 
-1. Run `parse/parse_multi_cores_latency_throughput.py`, the results will include the throughput, the P99.9 tail latency, and the number of interrupts for each setting across all its runs:
+2. Run `parse/parse_multi_cores_latency_throughput.py`. The results include the throughput, the P99.9 tail latency, and the number of interrupts for each setting across all its runs:
+
     ```plain
-    netian@node0:~/latency/parse$ python3 parse_multi_cores_latency_throughput.py 
+    netian@node0:~/latency/parse$ python3 parse_multi_cores_latency_throughput.py
     # multi_cores_macro_acca
     num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  threads  mean_lat_us  p999_lat_us  thpt_mIOPS  client_intr/core  server_intr/core
     --------  --------  -------  ---  ---  -------  -----  ----  -------  -----------  -----------  ----------  ----------------  ----------------
         32        64        1    1    1        1     16     3      512      147.801      576.000     3.45124          14359687          14007636
     ```
 
-1. To get the latency breakdown heatmap, please follow the same process in the Figure 3-4 Part, i.e., first generate the .npy file with `parse/parse_breakdown_to_heatmap.py`, then use `draw_heatmap.py` to draw the heatmap.
+3. To get the latency breakdown heatmap, follow the same process as in the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) part: first generate the `.npy` file with `parse/parse_breakdown_to_heatmap.py`, then draw the heatmap with `draw_heatmap.py`.
 
-### Figure 13:  Latency-throughput curve with increasing in-flight requests under multiple cores
+### Figure 13: In-flight requests with multiple CPU cores
 
-1. (Optional) Change the configurations in `experiment/run_fig13_{default,acca,pcsched}.py`:
+Latency-throughput curve with increasing in-flight requests under multiple cores.
+
+1. (Optional) Change the configuration in `experiment/run_fig13_{default,acca,pcsched}.py`:
+
     ```python
     num_apps = [2, 8, 32]
     flowsize = [64]
@@ -640,56 +783,75 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
     dim = [0, 1]
     pin = [1]
     permute = [1]
-    # NOTE: Unfortunately, the script is hardcoded to use 16 physical cores. 
+    # NOTE: Unfortunately, the script is hardcoded to use 16 physical cores.
     # If you want to use a different number of cores, you will need to modify the
     # script, the helper, and application, and this runner script accordingly.
     cores = [16]
     runs = [0, 1, 2]
     ```
 
-1. Run the experiment with `experiment/run_fig13_default.py` under `5.10.46-linux+` (default Linux).
+2. Run the experiment with `experiment/run_fig13_default.py` under `5.10.46-linux+` (default Linux).
 
-1. Run the experiment with `experiment/run_fig13_{acca,pcsched}.py` under `5.10.46-latency+` (our customized Kernel).
+3. Run the experiment with `experiment/run_fig13_{acca,pcsched}.py` under `5.10.46-latency+` (customized kernel).
 
 #### Evaluation and Data Parse
 
-1. Change the configuraiton of `parse/parse_multi_cores_latency_throughput.py` and run the script; the results will include the throughput, the P99.9 tail latency, and the number of interrupts for each setting across all its runs.
+1. Change the configuration in `parse/parse_multi_cores_latency_throughput.py` and run the script; the results include the throughput, the P99.9 tail latency, and the number of interrupts for each setting across all its runs.
 
-### Figure 16: EEVDF Performance
+### Figure 16: EEVDF performance
 
-1. Download Linux 6.12.12 kernel from [Linux](https://kernel.org)
+TODO: The imbalanced io depth experiment
+
+1. Download the Linux 6.12.66 (EEVDF) kernel from [kernel.org](https://kernel.org):
+
     ```sh
     cd ~
-    wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.12.tar.xz
-    TODO: complete the shell snippet
+    wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.66.tar.xz
+    tar -xJf linux-6.12.66.tar.xz
+    cp -r linux-6.12.66 linux-6.12-latency
     ```
 
-TODO: add EEVDF patch
+2. Apply our ACCa and PCSched patch for the Linux 6.12.66 kernel:
 
-TODO: EEVDF macro script
+    ```sh
+    cd linux-6.12-latency
+    git apply --check ../latency/linux-6.12-latency.patch
+    git apply ../latency/linux-6.12-latency.patch
+    ```
 
-TODO: EEVDF understand script and parse
+3. Compile the kernel following the directions above.
 
-### Figure 14-15, 17: Supplementary experiment
+    > [!IMPORTANT]
+    > Disable IRQ time accounting for the `linux-6.12.66` kernel, and enable it for the `linux-6.12.66-latency` kernel. See the kernel repo — the installation is similar.
 
-The experiments above have well support our key insights in our paper:
-1. Scheduling dominates the high tail latency
-2. Runtime may not be the idea scheduling abstraction for low latency
-3. Traffic predictability can make interrupt tuning more effective
+4. Run the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) experiment under the default EEVDF kernel (`linux-6.12.66`) and our customized EEVDF kernel (`linux-6.12.66-latency`).
+
+#### Evaluation and Data Parse
+
+1. Please refer to the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) part for the latency-throughput curve.
+
+### Figure 14-15, 17: Supplementary experiments
+
+The experiments above already support the key insights of our paper:
+
+1. Scheduling dominates high tail latency.
+2. Runtime may not be the ideal scheduling abstraction for low latency.
+3. Traffic predictability can make interrupt tuning more effective.
 4. Choose your parallelism carefully.
 
-The experiments for Figure 14 to Figure 17 are **supplementary** experiments to our paper. **We will update the experiment set for these experiment when time availiable.**
+The experiments for Figures 14, 15, and 17 are **supplementary**. **We will update the experiment set for these experiments when time is available.**
 
-However, if you are interested, you can check the following section for our unorganized codebase ([Link](https://github.com/amefumi/understand_latency)) to find the application and scripts for running these experiments. For example, Figure 14 can be done by setting the `flowsize` in the Figure 3-4 part experiment; Figure 16 can be done by changing the test application; and Figure 17 can be done by refering the Redis experiment in [NetChannel](https://github.com/Terabit-Ethernet/NetChannel).
-
+If you are interested in the meantime, you can check our unorganized codebase ([link](https://github.com/amefumi/understand_latency)) for the applications and scripts used to run them. For example, Figure 14 can be produced by setting `flowsize` in the Figure 3-4 experiment; Figure 15 can be produced by changing the test application; and Figure 17 can be produced by referring to the Redis experiment in [NetChannel](https://github.com/Terabit-Ethernet/NetChannel).
 
 ## Acknowledgement
-[Tianyu](https://netian.me) is the current maintainer for this project. Please contact him if you have any issue: zuotianyu@virginia.edu
 
-Codex and Claude Code are used to polish this document and re-organize the experiment scripts.
+[Tianyu](https://netian.me) is the current maintainer of this project. Please contact him at zuotianyu@virginia.edu if you run into any issue.
+
+Codex and Claude Code were used to polish this document and reorganize the experiment scripts.
 
 If you find this work useful, please cite:
-```plain
+
+```bibtex
 @inproceedings{UnderstandLatencyUVA,
   title={Understanding Host Network Stack Latency},
   author={Zuo, Tianyu and Hwang, Jaehyun and Tang, Ao and Agarwal, Rachit and Cai, Qizhe},
