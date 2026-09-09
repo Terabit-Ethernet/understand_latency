@@ -41,8 +41,8 @@ configure_latency_sysctls_local()
     sudo sysctl -w net.core.latency_dumb_schedule_disable_clamp=0
     sudo sysctl -w net.core.latency_dumb_schedule_enable=0
     sudo sysctl -w net.core.latency_perstage_rdpmc_on=0
-    echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting
-    echo 1 | sudo tee /sys/module/core/parameters/scheduler_accounting
+    echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting
+    echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting
 }
 
 
@@ -57,9 +57,9 @@ configure_latency_sysctls_remote()
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_dumb_schedule_enable=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_perstage_rdpmc_on=0"
     ssh $USER\@$TARGETC -t \
-        "echo 1 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
+        "echo 0 | sudo tee /sys/module/core/parameters/accu_irq_accounting"
     ssh $USER\@$TARGETC -t \
-        "echo 1 | sudo tee /sys/module/core/parameters/scheduler_accounting"
+        "echo 0 | sudo tee /sys/module/core/parameters/scheduler_accounting"
 }
 
 
