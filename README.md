@@ -551,17 +551,40 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
     num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  client_samples  server_samples  client_p999  server_p999
     --------  --------  -------  ---  ---  -------  -----  ----  --------------  --------------  -----------  -----------
         2        64       32    1    1        1      1     3        24739133        24739139        76178        48594
+    ......
     ```
 
 ### Figure 11: CDF for the number of requests per segment
 
 1. The CDF data is shipped-in with the Figure 9-10 experiments, we just need to parse the data!
 
-TODO: scripts update
-
 #### Evaluation and Data Parse
 
-TODO: parse
+1. Change the configurations in `parse/parse_iodepth_segments.py` to the interested experiments and runs prefix:
+    ```python
+    result_dir = "/data/projects/latency"
+    experiments = ["single_core_iodepth_acca"]
+    prefixes = ["2_64_32_1_1_1_1_"]
+    ```
+
+1. Run the `parse/parse_iodepth_segments.py`. The first column is the number of requests per segment, and the second is the CDF to the number. For example:
+    ```plain
+    netian@node0:~/latency/parse$ python3 parse_iodepth_segments.py 
+    ## single_core_iodepth_acca/2_64_32_1_1_1_1 (2 run(s))
+    # client: 67463583 samples
+    0 0.0
+    1 0.003293910434611811
+    2 0.010197249677652016
+    3 0.0319743616344836
+    4 0.06776414469418264
+    5 0.14515177766351367
+    6 0.37522356320742706
+    7 0.7046617135647836
+    8 0.8923228106636435
+    9 0.9842263788450133
+    10 0.9955283726925681
+    ......
+    ```
 
 ### Figure 12: Latency-throughput curve and latency breakdown with multiple CPU cores
 
