@@ -25,7 +25,7 @@ Experiment set for our SIGCOMM 2026 paper, *"Understanding Host Network Stack La
   - [Figure 9-11: Latency-throughput curve with increasing in-flight requests](#figure-9-11-latency-throughput-curve-with-increasing-in-flight-requests)
   - [Figure 12: Latency-throughput curve and breakdown with multiple CPU cores](#figure-12-latency-throughput-curve-and-breakdown-with-multiple-cpu-cores)
   - [Figure 13: In-flight requests with multiple CPU cores](#figure-13-in-flight-requests-with-multiple-cpu-cores)
-  - [Figure 16: EEVDF performance](#figure-16-eevdf-performance)
+  - [Figure 16: EEVDF performance](#figure-16-lag-evaporation-and-eevdf-performance)
   - [Figure 14-15, 17: Supplementary experiments](#figure-14-15-17-supplementary-experiments)
 - [Acknowledgement](#acknowledgement)
 
