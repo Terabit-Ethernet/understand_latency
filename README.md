@@ -172,8 +172,8 @@ Assuming you have installed the kernel and drivers as instructed above, you shou
     ./target_setup.sh
     ```
 
-    > [!NOTE]
-    > Keep the SSH window open so that `phc2sys` stays alive. We recommend using `tmux`; see the [Tmux Cheat Sheet](https://tmuxcheatsheet.com/) for usage.
+> [!NOTE]
+> Keep the SSH window open so that `phc2sys` stays alive. We recommend using `tmux`; see the [Tmux Cheat Sheet](https://tmuxcheatsheet.com/) for usage.
 
 ### Application Modification
 
@@ -272,9 +272,6 @@ cd application && make -j$(nproc)
     netian@node0:/data/projects/latency/isolated_thread_default/1_64_1_0_1_1_1_2$ cat latency.log
     18.1494 23 34 # Average = 18.1494, P50 = 23, P99 = 34
     ```
-
-    > [!NOTE]
-    > The results may vary significantly from those in our paper due to hardware differences.
 
 3. We also record the end-to-end latency distribution for each thread in `netperf-{#thread}_hist.bin`. To obtain the experiment-level P99.9 latency we merge the latency distributions across all runs before computing the percentile, rather than averaging the per-run P99.9 values.
 
@@ -469,8 +466,8 @@ We use kernel modules to probe the virtual runtime of threads (`vruntime_probe`)
     // #define COUNTING_SERVER_SIDE // <- Uncomment this line on the server (target) side
     ```
 
-    > [!IMPORTANT]
-    > On the server side you must first uncomment `COUNTING_SERVER_SIDE` so that the netfilter hook matches the correct IP.
+> [!IMPORTANT]
+> On the server side you must first uncomment `COUNTING_SERVER_SIDE` so that the netfilter hook matches the correct IP.
 
 5. Recompile the modules on both sides **every time you change the kernel**, otherwise you will hit compatibility issues:
 
@@ -579,9 +576,6 @@ We use kernel modules to probe the virtual runtime of threads (`vruntime_probe`)
 
 2. Run `parse/parse_rdpmc_acca.py`. The output should look like the block below. `{cli,srv}_time` is the client/server-side processing time, `{cli,srv}_stall` is the stall cycles, and `{cli,srv}_stall_l1d` is the stall cycles during which at least one L1d miss is outstanding.
 
-    > [!NOTE]
-    > Only half of the ports belong to the same logical core; the remaining half belong to its sibling logical core.
-
     ```plain
     netian@node0:~/latency/parse$ python3 parse_rdpmc_acca.py
     port  cli_time  cli_stall  cli_stall_l1d  srv_time  srv_stall  srv_stall_l1d
@@ -625,6 +619,9 @@ We use kernel modules to probe the virtual runtime of threads (`vruntime_probe`)
     [STATS] client: 36 threads, processing time 1962.7 .. 2008.6 ns, gap 45.9 ns
     [STATS] server: 36 threads, processing time 1831.8 .. 1888.0 ns, gap 56.3 ns
     ```
+
+> [!NOTE]
+> Only half of the ports belong to the same logical core; the remaining half belong to its sibling logical core.
 
 ### Figure 8a-8b: Latency breakdown and interrupt counts
 
@@ -826,8 +823,8 @@ Latency-throughput curve with increasing in-flight requests under multiple cores
 
 5. Run the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) experiment under the default EEVDF kernel (`linux-6.12.66`) and our customized EEVDF kernel (`linux-6.12.66-latency`).
 
-    > [!NOTE]
-    > When enabling PCSched, add `net.core.latency_dumb_schedule_tcp_send` to the `configure_latency_sysctls_local` and `configure_latency_sysctls_remote` helpers of the scripts and set it to 1.
+> [!NOTE]
+> When enabling PCSched, add `net.core.latency_dumb_schedule_tcp_send` to the `configure_latency_sysctls_local` and `configure_latency_sysctls_remote` helpers of the scripts and set it to 1.
 
 #### Evaluation and Data Parse
 
