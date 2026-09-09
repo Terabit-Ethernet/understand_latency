@@ -3,7 +3,7 @@
 CFLAGS := -pthread -Wall -Werror -g -fno-strict-aliasing -O3 -I..
 
 
-BINS := latency_client latency_server
+BINS := latency_client latency_server latency_client_cores latency_server_cores
 
 OBJS := $(patsubst %,%.o,$(BINS))
 	
