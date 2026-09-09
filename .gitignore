@@ -3,3 +3,4 @@ __pycache__
 scripts/old
 
 rsync.sh
+*.old.md
