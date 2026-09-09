@@ -12,6 +12,10 @@ Directory layout it expects (see experiment/run_fig2_default.py):
 
 e.g. /data/projects/latency/isolated_thread_default/1_64_1_0_1_1_1_0
 where the setting is "1_64_1_0_1_1_1" and the run index is "0".
+
+Per setting it reports the merged latency distribution, the average throughput
+and -- for experiments whose runs contain /proc/interrupts snapshots -- the
+average number of NIC interrupts taken on each side during a run.
 """
 import argparse
 import os
@@ -23,7 +27,7 @@ import numpy as np
 # Configuration:
 result_dir = "/data/projects/latency"
 # Experiments to parse. Leave empty to parse every experiment found in result_dir.
-experiments = ["single_core_understand_acca"]
+experiments = ["single_core_macro_default"]
 
 total_bin = 100000
 
@@ -40,6 +44,16 @@ HIST_FILE = "overall_hist.bin"
 # Throughput is written by parse_netperf.py into throughput.log (single value on
 # the first line). Older results kept it on the second line of linux_latency.
 THROUGHPUT_FILES = [("throughput.log", 0), ("linux_latency", 1)]
+
+# /proc/interrupts snapshots the experiment scripts take around each run (see
+# scripts/single_core_*.sh), keyed by the side they were taken on.
+INTERRUPT_FILES = [
+    ("client", "interrupt_before", "interrupt_after"),
+    ("server", "interrupt_before_server", "interrupt_after_server"),
+]
+# Number of mlx5 completion queues to account for. The experiment traffic lands
+# on the first queues, so -- as in parse_interrupt.py -- only those are summed.
+INTERRUPT_QUEUES = 2
 
 
 def read_histogram(file_path):
@@ -81,6 +95,44 @@ def read_throughput(run_dir):
     raise FileNotFoundError(
         "no throughput log ({}) in {}".format(
             " or ".join(name for name, _ in THROUGHPUT_FILES), run_dir))
+
+
+def read_interrupt_counts(file_path):
+    """Per-queue mlx5 completion interrupt counts of one /proc/interrupts dump.
+
+    Each mlx5_comp line is "<irq>: <count per cpu>... <controller> <name>", so
+    the per-CPU columns are summed until the first non-numeric field.
+    """
+    counts = []
+    with open(file_path, "r") as f:
+        for line in f:
+            if "mlx5_comp" not in line:
+                continue
+            total = 0
+            for element in line.split()[1:]:
+                try:
+                    total += int(element)
+                except ValueError:
+                    break
+            counts.append(total)
+    return counts
+
+
+def read_interrupts(run_dir, before_name, after_name):
+    """Interrupts taken by one side during a run, or None if not recorded."""
+    before_path = os.path.join(run_dir, before_name)
+    after_path = os.path.join(run_dir, after_name)
+    if not (os.path.exists(before_path) and os.path.exists(after_path)):
+        return None
+    before = read_interrupt_counts(before_path)
+    after = read_interrupt_counts(after_path)
+    if not before or len(before) != len(after):
+        print(f"[warn] {run_dir}: {before_name}/{after_name} list "
+              f"{len(before)}/{len(after)} mlx5_comp queues, ignoring",
+              file=sys.stderr)
+        return None
+    diff = [a - b for a, b in zip(after, before)]
+    return float(sum(diff[:INTERRUPT_QUEUES]))
 
 
 def sort_key(setting):
@@ -142,6 +194,7 @@ def parse_setting(runs):
     """Merge every run of one setting. Returns a result dict, or None."""
     latency_bins = []
     throughputs = []
+    interrupts = {side: [] for side, _, _ in INTERRUPT_FILES}
     for _, run_dir in runs:
         hist_path = os.path.join(run_dir, HIST_FILE)
         if not os.path.exists(hist_path):
@@ -154,18 +207,29 @@ def parse_setting(runs):
             continue
         latency_bins.append(read_histogram(hist_path))
         throughputs.append(throughput)
+        for side, before_name, after_name in INTERRUPT_FILES:
+            count = read_interrupts(run_dir, before_name, after_name)
+            if count is not None:
+                interrupts[side].append(count)
 
     if not latency_bins:
         return None
 
     mean_latency, latency999 = parse_histogram(combine_histograms(latency_bins))
-    return {
+    result = {
         "runs": len(latency_bins),
         "mean_latency_us": mean_latency,
         "p999_latency_us": latency999,
         # Average throughput across runs, in MIOPS.
         "throughput_miops": float(np.mean(throughputs)) / 1e6,
     }
+    # Average interrupt count across the runs that recorded one. Runs without
+    # the /proc/interrupts dumps only drop out of this average, they still
+    # count towards the latency and throughput above.
+    for side, counts in interrupts.items():
+        result[f"{side}_interrupts"] = float(np.mean(counts)) if counts else None
+        result[f"{side}_interrupt_runs"] = len(counts)
+    return result
 
 
 def format_table(columns, rows):
@@ -192,9 +256,8 @@ def parse_experiment(experiment_name, csv=False):
 
     num_fields = max(len(s) for s in runs_by_setting)
     columns = setting_columns(experiment_dir, num_fields)
-    header = list(columns) + ["runs", "mean_lat_us", "p999_lat_us", "thpt_mIOPS"]
 
-    rows = []
+    results = []
     for setting in sorted(runs_by_setting, key=sort_key):
         runs = sorted(runs_by_setting[setting], key=lambda r: sort_key((r[0],)))
         if len(setting) != num_fields:
@@ -205,12 +268,31 @@ def parse_experiment(experiment_name, csv=False):
         if result is None:
             print(f"[warn] no usable runs for setting {'_'.join(setting)}", file=sys.stderr)
             continue
-        rows.append(list(setting) + [
+        results.append((setting, result))
+
+    # Only show the interrupt columns for experiments that recorded them.
+    sides = [side for side, _, _ in INTERRUPT_FILES
+             if any(r[f"{side}_interrupts"] is not None for _, r in results)]
+    header = list(columns) + ["runs", "mean_lat_us", "p999_lat_us", "thpt_mIOPS"]
+    header += [f"{side}_intr" for side in sides]
+
+    rows = []
+    for setting, result in results:
+        row = list(setting) + [
             str(result["runs"]),
             f"{result['mean_latency_us']:.3f}",
             f"{result['p999_latency_us']:.3f}",
             f"{result['throughput_miops']:.5f}",
-        ])
+        ]
+        for side in sides:
+            interrupts = result[f"{side}_interrupts"]
+            row.append("" if interrupts is None else f"{interrupts:.0f}")
+            interrupt_runs = result[f"{side}_interrupt_runs"]
+            if interrupt_runs != result["runs"]:
+                print(f"[warn] setting {'_'.join(setting)}: {side} interrupts "
+                      f"averaged over {interrupt_runs} of {result['runs']} runs",
+                      file=sys.stderr)
+        rows.append(row)
 
     print(f"# {experiment_name}")
     if csv:

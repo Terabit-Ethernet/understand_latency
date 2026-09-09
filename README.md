@@ -287,32 +287,32 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
     ```plain
     netian@node0:~/latency/parse$ python3 parse_single_core_latency_throughput.py 
     # single_core_macro_default
-    num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_mIOPS
-    --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------
-        2        64        1    0    1        1      1     3       20.705       37.000     0.09482
-        2        64        1    1    1        1      1     3       22.289       48.000     0.08747
-        4        64        1    0    1        1      1     3       27.449       49.000     0.14290
-        4        64        1    1    1        1      1     3       26.307      103.000     0.14900
-        8        64        1    0    1        1      1     3       44.685      320.000     0.17617
-        8        64        1    1    1        1      1     3       68.772      169.000     0.11542
-        12        64        1    0    1        1      1     3       64.004     2002.000     0.18477
-        12        64        1    1    1        1      1     3       94.728      273.000     0.12594
-        16        64        1    0    1        1      1     3       85.226     1966.000     0.18633
-        16        64        1    1    1        1      1     3      111.530      318.000     0.14275
-        20        64        1    0    1        1      1     3      106.889     3239.000     0.18609
-        20        64        1    1    1        1      1     3      134.589      292.000     0.14801
-        24        64        1    0    1        1      1     3      128.859     3523.000     0.18541
-        24        64        1    1    1        1      1     3      104.463     1665.000     0.22820
-        28        64        1    0    1        1      1     3      150.203     4317.000     0.18555
-        28        64        1    1    1        1      1     3      120.002     2626.000     0.23196
-        32        64        1    0    1        1      1     3      172.028     4067.000     0.18538
-        32        64        1    1    1        1      1     3      140.060     1558.000     0.22728
-        36        64        1    0    1        1      1     3      193.705     4416.000     0.18526
-        36        64        1    1    1        1      1     3      151.565     1505.000     0.23656
-        40        64        1    0    1        1      1     3      215.587     4660.000     0.18501
-        40        64        1    1    1        1      1     3      170.895     2333.000     0.23309
-        44        64        1    0    1        1      1     3      237.890     4037.000     0.18446
-        44        64        1    1    1        1      1     3      185.738     2325.000     0.23602
+    num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  mean_lat_us  p999_lat_us  thpt_mIOPS  client_intr  server_intr
+    --------  --------  -------  ---  ---  -------  -----  ----  -----------  -----------  ----------  -----------  -----------
+        2        64        1    0    1        1      1     3       20.705       37.000     0.09482        90810        86657
+        2        64        1    1    1        1      1     3       22.289       48.000     0.08747        86005        83199
+        4        64        1    0    1        1      1     3       27.449       49.000     0.14290        75966        75795
+        4        64        1    1    1        1      1     3       26.307      103.000     0.14900        75272        79020
+        8        64        1    0    1        1      1     3       44.685      320.000     0.17617        70068        67972
+        8        64        1    1    1        1      1     3       68.772      169.000     0.11542        66912        72080
+        12        64        1    0    1        1      1     3       64.004     2002.000     0.18477        65539        65713
+        12        64        1    1    1        1      1     3       94.728      273.000     0.12594        66975        67792
+        16        64        1    0    1        1      1     3       85.226     1966.000     0.18633        68603        68811
+        16        64        1    1    1        1      1     3      111.530      318.000     0.14275        69496        70319
+        20        64        1    0    1        1      1     3      106.889     3239.000     0.18609        65657        67823
+        20        64        1    1    1        1      1     3      134.589      292.000     0.14801        65270        64308
+        24        64        1    0    1        1      1     3      128.859     3523.000     0.18541        70822        70757
+        24        64        1    1    1        1      1     3      104.463     1665.000     0.22820        72952        71279
+        28        64        1    0    1        1      1     3      150.203     4317.000     0.18555        68525        72552
+        28        64        1    1    1        1      1     3      120.002     2626.000     0.23196        91271        91275
+        32        64        1    0    1        1      1     3      172.028     4067.000     0.18538        68513        61198
+        32        64        1    1    1        1      1     3      140.060     1558.000     0.22728        71012        70658
+        36        64        1    0    1        1      1     3      193.705     4416.000     0.18526        68366        63227
+        36        64        1    1    1        1      1     3      151.565     1505.000     0.23656        71850        72083
+        40        64        1    0    1        1      1     3      215.587     4660.000     0.18501        84726        86299
+        40        64        1    1    1        1      1     3      170.895     2333.000     0.23309        68681        69632
+        44        64        1    0    1        1      1     3      237.890     4037.000     0.18446        63981        65018
+        44        64        1    1    1        1      1     3      185.738     2325.000     0.23602        66872        66200
     ```
 
 1. To get the heatmap (Figure 4) at the knee point, change the configuration in `parse/parse_breakdown_to_heatmap.py` and run it for **each experiment** on its knee point (this means you should first identify the knee point through step 1, and set the **prefix** to the knee point runs). Then draw the heatmap for each generated npy file, as directed in the Figure 2 experiment:
@@ -497,6 +497,9 @@ Note: This experiment takes significant time. To reduce the waiting time, you ca
     [STATS] server: 36 threads, processing time 1831.8 .. 1888.0 ns, gap 56.3 ns
     ```
 
+### Figure 8a-8b: Latency breakdown at certain point and 
+1. You should be able to get the latency breakdown heatmap and the number of interrupt in both server and client side (`server_intr` and `client_intr`) at any point by performing the steps in Figure 3-4 part.
+
 ### Figure 8c: The latency-throughput curve for AutoDIM
 
 Important: as we state in our paper, the AutoDIM sets "the minimum packet threshold and the maximum timeout before triggering an interrupt (i.e., `rx_frames` and `rx_usecs`) to half of the total in-flight packets across threads on a single logical core and the corresponding total processing time." However, different hardware configuration leads to different processing time, thus different hyper-parameter (i.e., average processing time per-packet). We leave this hyper-parameter tuning to the exerciser.
@@ -531,18 +534,38 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
 
 ### Evaluation and Data Parse
 
-TODO: check iodepth script
+1. The experiment results will be located at `single_core_iodepth_default`, `single_core_iodepth_acca`, and `single_core_iodepth_pcshed` folder in `/data/projects/latency`.
 
-TODO: different per-stage latency parse for iodepth
+1. You should be able to get the latency-throughput curve data by running the script in Figure 3-4 part---Just rememeber to change the configurations.
 
+1. As we mentioned in our paper, due to batching, we are only able to measure the `rx_sched` latency when there are multiple in-flight requests per connection. Change the configuration of `parse/parse_iodepth_rxsched.py`:
+    ```python
+    result_dir = "/data/projects/latency"
+    experiments = ["single_core_iodepth_acca"]
+    ```
+
+1. Run `parse/parse_iodepth_rxsched.py`, the script will output the client-side and server-side P99.9 `rx_sched` latency. For example, for Linux + ACCa, the results may look like:
+    ```plain
+    netian@node0:~/latency/parse$ python3 parse_iodepth_rxsched.py 
+    # single_core_iodepth_acca
+    num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  client_samples  server_samples  client_p999  server_p999
+    --------  --------  -------  ---  ---  -------  -----  ----  --------------  --------------  -----------  -----------
+        2        64       32    1    1        1      1     3        24739133        24739139        76178        48594
+    ```
 
 ### Figure 11: CDF for the number of requests per segment
 
-TODO: scripts
+1. The CDF data is shipped-in with the Figure 9-10 experiments, we just need to parse the data!
+
+TODO: scripts update
+
+#### Evaluation and Data Parse
 
 TODO: parse
 
 ### Figure 12: Latency-throughput curve and latency breakdown with multiple CPU cores
+
+TODO: multiple core helper scripts
 
 TODO: scripts
 
@@ -550,7 +573,14 @@ TODO: scripts
 
 TODO: parse
 
-### Figure 15: EEVDF Performance
+### Figure 16: EEVDF Performance
+
+1. Download Linux 6.12.12 kernel from [Linux](https://kernel.org)
+    ```sh
+    cd ~
+    wget https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.12.12.tar.xz
+    TODO: complete the shell snippet
+    ```
 
 TODO: add EEVDF patch
 
@@ -558,7 +588,7 @@ TODO: EEVDF macro script
 
 TODO: EEVDF understand script and parse
 
-### Figure 14, 16-17: Supplementary experiment
+### Figure 14-15, 17: Supplementary experiment
 
 The experiments above have well support our key insights in our paper:
 1. Scheduling dominates the high tail latency
@@ -566,25 +596,15 @@ The experiments above have well support our key insights in our paper:
 3. Traffic predictability can make interrupt tuning more effective
 4. Choose your parallelism carefully.
 
-The experiments for Figure 14 to Figure 17 are **supplementary** experiments to our paper. We will update the experiment set for these experiment when availiable. However, if you are interested, you can check the following section for our unorganized codebase to find the application and scripts for running these experiments.
+The experiments for Figure 14 to Figure 17 are **supplementary** experiments to our paper. **We will update the experiment set for these experiment when time availiable.**
 
+However, if you are interested, you can check the following section for our unorganized codebase ([Link](https://github.com/amefumi/understand_latency)) to find the application and scripts for running these experiments. For example, Figure 14 can be done by setting the `flowsize` in the Figure 3-4 part experiment; Figure 16 can be done by changing the test application; and Figure 17 can be done by refering the Redis experiment in [NetChannel](https://github.com/Terabit-Ethernet/NetChannel).
 
-## Unorganized Codebase
-
-Due to time limit and the standard to fulfill the "functional" requirement, we only show the functionality our our customized kernel used to measure per-component latency, our experimental application, our kernel modules (to observe virtual runtime, packets in softIRQ, and packet size distribution, and to program general-purpose PMU), and reference experiment script. The experiments in our paper would need more adjustment in experiment script.
-
-Please note it is hard to reproduce all experiments results in our paper due to hardware differences. If you are interested in reproducing the exact results, please try to build the same hardware environment as mentioned in this document.
-
-
-For more experiments, if you are interested, please refer to the codebase in https://github.com/amefumi/understand_latency.
-
-
-Though, once you have the customized kernel, the experimental application, the essential kernel modules, and the reference experiment script, you should be able to design any new experiments.
 
 ## Acknowledgement
 [Tianyu](https://netian.me) is the current maintainer for this project. Please contact him if you have any issue: zuotianyu@virginia.edu
 
-Codex and Claude Code are used to polish this document.
+Codex and Claude Code are used to polish this document and re-organize the experiment scripts.
 
 If you find this work useful, please cite:
 ```plain

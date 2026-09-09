@@ -226,5 +226,5 @@ module_init(latency_pmu_init);
 module_exit(latency_pmu_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Tianyu Zuo <zuotianyu@virginia.edu>");
+MODULE_AUTHOR("UVA NetSys");
 MODULE_DESCRIPTION("Per-CPU PMU setup for per-stage CPU events measurement.");

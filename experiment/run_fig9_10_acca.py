@@ -5,10 +5,13 @@ from itertools import product
 # Experiment Parameters:
 experiment_name = "single_core_iodepth_acca"
 script_name = "single_core_iodepth_acca.sh"
-num_apps = [2, 8, 32]
+# num_apps = [2, 8, 32]
+num_apps = [2]
 flowsize = [64]
-iodepth = [1, 2, 4, 8, 16, 24, 32]
-dim = [0, 1]
+# iodepth = [1, 2, 4, 8, 16, 24, 32]
+iodepth = [32]
+# dim = [0, 1]
+dim = [1]
 pin = [1]
 permute = [1]
 cores = [1]
