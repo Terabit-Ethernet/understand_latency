@@ -798,9 +798,7 @@ Latency-throughput curve with increasing in-flight requests under multiple cores
 
 1. Change the configuration in `parse/parse_multi_cores_latency_throughput.py` and run the script; the results include the throughput, the P99.9 tail latency, and the number of interrupts for each setting across all its runs.
 
-### Figure 16: EEVDF performance
-
-TODO: The imbalanced io depth experiment
+### Figure 16: Lag evaporation and EEVDF performance
 
 1. Download the Linux 6.12.66 (EEVDF) kernel from [kernel.org](https://kernel.org):
 
@@ -824,11 +822,18 @@ TODO: The imbalanced io depth experiment
     > [!IMPORTANT]
     > Disable IRQ time accounting for the `linux-6.12.66` kernel, and enable it for the `linux-6.12.66-latency` kernel. See the kernel repo — the installation is similar.
 
-4. Run the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) experiment under the default EEVDF kernel (`linux-6.12.66`) and our customized EEVDF kernel (`linux-6.12.66-latency`).
+4. Change the configuration in `experiment/run_fig16a_acca.py` and run the script. It reproduces the lag evaporation scenario of Section 3.7 in our paper: one client thread runs with a higher I/O depth than the others while the CPU is fully bottlenecked.
+
+5. Run the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) experiment under the default EEVDF kernel (`linux-6.12.66`) and our customized EEVDF kernel (`linux-6.12.66-latency`).
+
+    > [!NOTE]
+    > When enabling PCSched, add `net.core.latency_dumb_schedule_tcp_send` to the `configure_latency_sysctls_local` and `configure_latency_sysctls_remote` helpers of the scripts and set it to 1.
 
 #### Evaluation and Data Parse
 
-1. Please refer to the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) part for the latency-throughput curve.
+1. Each run of `experiment/run_fig16a_acca.py` records the final virtual runtime and the `sum_exec_runtime` of every client thread in the `client.log` of its output directory.
+
+2. Please refer to the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) part for the latency-throughput curve.
 
 ### Figure 14-15, 17: Supplementary experiments
 

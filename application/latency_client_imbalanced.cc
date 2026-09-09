@@ -453,8 +453,8 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 #endif
 
 
-	lfile.open("temp/netperf-" + std::to_string(id)+".log");
-	tfile.open("temp/netperf-" + std::to_string(id)+"_thpt.log");
+	lfile.open("../temp/netperf-" + std::to_string(id)+".log");
+	tfile.open("../temp/netperf-" + std::to_string(id)+"_thpt.log");
 	// tfile <<   pid << " " << ntohs(client.sin_port) << " "
 	// 	<< sent_bytes  / (diff_us(begin_time, end_time) / 1000000.0) / flow_size  << std::endl;
 	tfile <<   pid << " " << ntohs(client.sin_port) << " " 
@@ -469,7 +469,7 @@ void test_ndping_send(struct sockaddr *dest, int id, int io_depth, int flow_size
 		std::atomic_fetch_add(&time_hist[i], local_time_hist[i]);
 	}
 	
-	hfile.open("temp/netperf-" + std::to_string(id)+"_hist.bin", std::ios::binary);
+	hfile.open("../temp/netperf-" + std::to_string(id)+"_hist.bin", std::ios::binary);
 	hfile.write(reinterpret_cast<const char*>(local_time_hist.data()), local_time_hist.size() * sizeof(long long));
 
 	lfile.close();
@@ -706,7 +706,7 @@ int main(int argc, char** argv)
 	std::ofstream lfile, hfile;
 	char *host, *port_name;
  	std::vector<std::thread> workers;
-	int cpu_list[32] = {32, 96, 33, 97, 34, 98, 35, 99, 36, 100, 37, 101, 38, 102, 39, 103, 40, 104, 41, 105, 42, 106, 43, 107, 44, 108, 45, 109, 46, 110, 47, 111};
+	int cpu_list[32] = {1, 73, 3, 75, 5, 77, 7, 79, 9, 81, 11, 83, 13, 85, 15, 87, 17, 89, 19, 91, 21, 93, 23, 95, 25, 97, 27, 99, 29, 101, 31, 103};
 	// int cpu_list[16] = {0, 32, 4, 36, 8, 40, 12, 44, 16, 48, 20, 52, 24, 56, 28, 60};
 //	int cpu_list[8] = {0, 4, 8, 12, 16, 20, 24, 28};
 	// char buffer[8000000] = "abcdefgh\n";
@@ -725,8 +725,8 @@ int main(int argc, char** argv)
 	int experiment_time = 300;
 	stop_count = 0;
 	atomic_store(&connected_count, 0);
-	lfile.open("temp/latency.log");
-	hfile.open("temp/overall_hist.bin",  std::ios::binary);
+	lfile.open("../temp/latency.log");
+	hfile.open("../temp/overall_hist.bin",  std::ios::binary);
     for (i = 0; i < MAX_HIST_VALUE; ++i) {
         time_hist[i].store(0);
     }
