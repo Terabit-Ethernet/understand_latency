@@ -33,7 +33,7 @@ source ../env.sh
 
 configure_latency_sysctls_local()
 {
-    sudo sysctl -w net.core.latency_breakdown_on=1
+    sudo sysctl -w net.core.latency_breakdown_on=0
     sudo sysctl -w net.core.latency_rx_sched_lat_only=0
     sudo sysctl -w net.core.latency_breakdown_log=$LOG
     sudo sysctl -w net.core.latency_breakdown_validation=0
@@ -48,7 +48,7 @@ configure_latency_sysctls_local()
 
 configure_latency_sysctls_remote()
 {
-    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_on=1"
+    ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_on=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_rx_sched_lat_only=0"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_log=$LOG"
     ssh $USER\@$TARGETC -t "sudo sysctl -w net.core.latency_breakdown_validation=0"

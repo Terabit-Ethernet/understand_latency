@@ -3,15 +3,19 @@ import subprocess
 from itertools import product
 
 # Experiment Parameters:
-experiment_name = "single_core_iodepth_acca"
-script_name = "single_core_iodepth_acca.sh"
+experiment_name = "multi_cores_iodepth_pcsched"
+script_name = "multi_cores_iodepth_pcsched.sh"
+# NOTE: should be understand as number of applications per physical core.
 num_apps = [2, 8, 32]
 flowsize = [64]
 iodepth = [1, 2, 4, 8, 16, 24, 32]
 dim = [0, 1]
 pin = [1]
 permute = [1]
-cores = [1]
+# NOTE: Unfortunately, the script is hardcoded to use 16 physical cores. 
+# If you want to use a different number of cores, you will need to modify the
+# script accordingly.
+cores = [16]
 runs = [0, 1, 2]
 
 # Configuration Parameters for Record:
@@ -41,7 +45,7 @@ def main():
         exp_outdir = "/data/projects/latency/{}/{}_{}_{}_{}_{}_{}_{}_{}".format(experiment_name, n, f, i, d, p, perm, core, run)
         os.makedirs(exp_outdir, exist_ok=True)
         wrtie_to_config(exp_outdir, experiment_name, n * core, f, i, d, p, perm, core)
-        command = f"../scripts/{script_name} {n} {exp_outdir} {f} {i} {d} {p} {perm}"
+        command = f"../scripts/{script_name} {n*core} {exp_outdir} {f} {i} {d} {p} {perm}"
         print(command)
         subprocess.run(command, shell=True)
 

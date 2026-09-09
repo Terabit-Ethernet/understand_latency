@@ -41,6 +41,7 @@ for core in "$@"; do
     log="$TARGETDIR/latency/temp/server_${idx}_core${core}_port${port}.log"
 
     echo "[server] i=$idx core=$core port=$port threads=$threads" >> "$log"
+    echo "[server] i=$idx core=$core port=$port threads=$threads"
 
     sudo taskset -c "$core" nice -n -20 \
         "$TARGETDIR/latency/application/latency_server_cores" \

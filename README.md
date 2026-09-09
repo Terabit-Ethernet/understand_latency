@@ -582,15 +582,78 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
 
 ### Figure 12: Latency-throughput curve and latency breakdown with multiple CPU cores
 
-TODO: update application for core mapping -> and README.md
+1. CPU list we are using:
 
-TODO: multiple core helper scripts
+1. If you are using different CPU cores or have different logical core number, you will have to change the configuration in the experiment script (`scripts/multi_cores_macro_{default,acca,pcsched}.sh`), the server-side experiment helper (`scripts/multi_cores_helper.sh`), and the experiment runner (`experiment/run_fig12_acca.py`), including the `TASKSET`, `THREADS_PER_CORE`, and `cores`.
 
-TODO: scripts
+1. If you are using different CPU cores or have different logical core number, you will also need to change the client-side application core offset. Locate the following lines in `application/latency_client_cores.cc`, and change the `core_offset` calculation to match the `TASKSET` you use, and re-compile the application.
+    ```c
+	int core_offset = sc < 48? (sc - 32): (sc - 96 + 16);
+	int starting_index = core_offset * thread_count;
+    ```
+
+1. (Optional) Change the configurations in `experiment/run_fig12_{default,acca,pcsched}.py`:
+    ```python
+    num_apps = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48]
+    flowsize = [64]
+    iodepth = [1]
+    dim = [0, 1]
+    pin = [1]
+    permute = [1]
+    # NOTE: Unfortunately, the script is hardcoded to use 16 physical cores. 
+    # If you want to use a different number of cores, you will need to modify the
+    # script, the helper, and application, and this runner script accordingly.
+    cores = [16]
+    runs = [0, 1, 2]
+    ```
+
+1. Run the experiment with `experiment/run_fig12_default.py` under `5.10.46-linux+` (default Linux).
+
+1. Run the experiment with `experiment/run_fig12_{acca,pcsched}.py` under `5.10.46-latency+` (our customized Kernel).
+
+#### Evaluation and Data Parse
+
+1. The results of this experiment should be at `multi_cores_macro_{default,acca,psched}` folder at `/data/project/latency`. Change the configuration in `parse/parse_multi_cores_latency_throughput.py` to the correct results directory. For example:
+    ```python
+    result_dir = "/data/projects/latency"
+    experiments = ["multi_cores_macro_acca"]
+    ```
+
+1. Run `parse/parse_multi_cores_latency_throughput.py`, the results will include the throughput, the P99.9 tail latency, and the number of interrupts for each setting across all its runs:
+    ```plain
+    netian@node0:~/latency/parse$ python3 parse_multi_cores_latency_throughput.py 
+    # multi_cores_macro_acca
+    num_apps  flowsize  iodepth  dim  pin  permute  cores  runs  threads  mean_lat_us  p999_lat_us  thpt_mIOPS  client_intr/core  server_intr/core
+    --------  --------  -------  ---  ---  -------  -----  ----  -------  -----------  -----------  ----------  ----------------  ----------------
+        32        64        1    1    1        1     16     3      512      147.801      576.000     3.45124          14359687          14007636
+    ```
+
+1. To get the latency breakdown heatmap, please follow the same process in the Figure 3-4 Part, i.e., first generate the .npy file with `parse/parse_breakdown_to_heatmap.py`, then use `draw_heatmap.py` to draw the heatmap.
 
 ### Figure 13:  Latency-throughput curve with increasing in-flight requests under multiple cores
 
-TODO: parse
+1. (Optional) Change the configurations in `experiment/run_fig13_{default,acca,pcsched}.py`:
+    ```python
+    num_apps = [2, 8, 32]
+    flowsize = [64]
+    iodepth = [1, 2, 4, 8, 16, 24, 32]
+    dim = [0, 1]
+    pin = [1]
+    permute = [1]
+    # NOTE: Unfortunately, the script is hardcoded to use 16 physical cores. 
+    # If you want to use a different number of cores, you will need to modify the
+    # script, the helper, and application, and this runner script accordingly.
+    cores = [16]
+    runs = [0, 1, 2]
+    ```
+
+1. Run the experiment with `experiment/run_fig13_default.py` under `5.10.46-linux+` (default Linux).
+
+1. Run the experiment with `experiment/run_fig13_{acca,pcsched}.py` under `5.10.46-latency+` (our customized Kernel).
+
+#### Evaluation and Data Parse
+
+1. Change the configuraiton of `parse/parse_multi_cores_latency_throughput.py` and run the script; the results will include the throughput, the P99.9 tail latency, and the number of interrupts for each setting across all its runs.
 
 ### Figure 16: EEVDF Performance
 

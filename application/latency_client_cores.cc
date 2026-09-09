@@ -832,7 +832,7 @@ int main(int argc, char** argv)
 	dest = matching_addresses->ai_addr;
 	((struct sockaddr_in *) dest)->sin_port = htons(port);
 
-	int core_offset = sc < 48? (sc - 32): (sc - 96 + 16);
+	int core_offset = sc < 72? (sc/2): ((sc - 72)/2 +16);
 	int starting_index = core_offset * thread_count;
 
 	for(i = starting_index;  i < starting_index + thread_count; i++) {
