@@ -1,0 +1,133 @@
+diff --git a/kernel/sched/core.c b/kernel/sched/core.c
+index b1895b3..e67f340 100644
+--- a/kernel/sched/core.c
++++ b/kernel/sched/core.c
+@@ -117,6 +117,16 @@ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_util_est_se_tp);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_update_nr_running_tp);
+ EXPORT_TRACEPOINT_SYMBOL_GPL(sched_compute_energy_tp);
+ 
++
++static int accu_irq_accounting __read_mostly;
++module_param(accu_irq_accounting, int, 0644);
++MODULE_PARM_DESC(accu_irq_accounting, "accurate irq accounting");
++
++static int scheduler_accounting __read_mostly;
++module_param(scheduler_accounting, int, 0644);
++MODULE_PARM_DESC(scheduler_accounting, "scheduler accounting");
++
++
+ DEFINE_PER_CPU_SHARED_ALIGNED(struct rq, runqueues);
+ DEFINE_PER_CPU(struct rnd_state, sched_rnd_state);
+ 
+@@ -741,6 +751,12 @@ static void update_rq_clock_task(struct rq *rq, s64 delta)
+ 	s64 __maybe_unused steal = 0, irq_delta = 0;
+ 
+ #ifdef CONFIG_IRQ_TIME_ACCOUNTING
++	if(accu_irq_accounting) {
++		if(hardirq_count() || (in_serving_softirq() && current != this_cpu_ksoftirqd()))
++			// we are accounting the "exit" of irq, so the offset is set to 0
++			irqtime_account_irq(current, 0);	
++	}
++
+ 	irq_delta = irq_time_read(cpu_of(rq)) - rq->prev_irq_time;
+ 
+ 	/*
+@@ -5179,6 +5195,14 @@ static struct rq *finish_task_switch(struct task_struct *prev)
+ 	struct mm_struct *mm = rq->prev_mm;
+ 	unsigned int prev_state;
+ 
++	// [amefumi]: I am not sure if scheduler accounting works for EEVDF.
++	if (scheduler_accounting) {
++		if (current->sched_class == &fair_sched_class) {
++			update_rq_clock(rq);
++			current->se.exec_start = rq_clock_task(rq);
++		}
++	}
++
+ 	/*
+ 	 * The previous task will have left us with a preempt_count of 2
+ 	 * because it left us after:
+@@ -6723,6 +6747,12 @@ static void __sched notrace __schedule(int sched_mode)
+ 		/* Also unlocks the rq: */
+ 		rq = context_switch(rq, prev, next, &rf);
+ 	} else {
++		if (scheduler_accounting) {
++			if (prev->sched_class == &fair_sched_class) {
++				update_rq_clock(rq);
++				prev->se.exec_start = rq_clock_task(rq);
++			}
++        }
+ 		rq_unpin_lock(rq, &rf);
+ 		__balance_callbacks(rq);
+ 		raw_spin_rq_unlock_irq(rq);
+diff --git a/net/core/sysctl_net_core.c b/net/core/sysctl_net_core.c
+index 47e2743..dba101d 100644
+--- a/net/core/sysctl_net_core.c
++++ b/net/core/sysctl_net_core.c
+@@ -26,6 +26,7 @@
+ #include <net/hotdata.h>
+ #include <net/proto_memory.h>
+ #include <net/rps.h>
++#include <net/latency.h>
+ 
+ #include "dev.h"
+ 
+@@ -633,6 +634,13 @@ static struct ctl_table net_core_table[] = {
+ 		.proc_handler	= proc_dointvec_minmax,
+ 		.extra1		= SYSCTL_ZERO,
+ 	},
++	{
++		.procname	= "latency_dumb_schedule_tcp_send",
++		.data		= &sysctl_net_latency_dumb_schedule_tcp_send,
++		.maxlen		= sizeof(unsigned int),
++		.mode		= 0644,
++		.proc_handler	= proc_douintvec,
++	},
+ };
+ 
+ static struct ctl_table netns_core_table[] = {
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index ad5f30c..ecad273 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -267,6 +267,7 @@
+ #include <linux/errqueue.h>
+ #include <linux/static_key.h>
+ #include <linux/btf.h>
++#include <linux/inet.h>
+ 
+ #include <net/icmp.h>
+ #include <net/inet_common.h>
+@@ -277,6 +278,7 @@
+ #include <net/ip.h>
+ #include <net/sock.h>
+ #include <net/rstreason.h>
++#include <net/latency.h>
+ 
+ #include <linux/uaccess.h>
+ #include <asm/ioctls.h>
+@@ -293,6 +295,9 @@ enum {
+ 	TCP_CMSG_TS = 2
+ };
+ 
++unsigned int sysctl_net_latency_dumb_schedule_tcp_send __read_mostly = 0;
++EXPORT_SYMBOL(sysctl_net_latency_dumb_schedule_tcp_send);
++
+ DEFINE_PER_CPU(unsigned int, tcp_orphan_count);
+ EXPORT_PER_CPU_SYMBOL_GPL(tcp_orphan_count);
+ 
+@@ -1185,6 +1190,14 @@ int tcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t size)
+ 				TCP_SKB_CB(skb)->sacked |= TCPCB_REPAIRED;
+ 		}
+ 
++		/* Dumb scheduling based on packet */
++		if (sysctl_net_latency_dumb_schedule_tcp_send &&
++			sk->sk_protocol == IPPROTO_TCP &&
++			inet_sk(sk)->inet_saddr == in_aton("192.168.1.101")) {
++			current->se.vruntime = (u64)(tcp_sk(sk)->data_segs_out) * 1000000;
++			// current->se.vruntime += 1000000;
++		}
++
+ 		/* Try to append data to the end of skb. */
+ 		if (copy > msg_data_left(msg))
+ 			copy = msg_data_left(msg);
