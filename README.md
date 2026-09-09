@@ -33,13 +33,11 @@ Experiment set for our SIGCOMM 2026 paper, *"Understanding Host Network Stack La
 
 > [!NOTE]
 > This experiment set is not essential to understand Linux network stack latency. With our [customized Linux kernel](https://github.com/Terabit-Ethernet/linux-latency) you should be able to run the latency analysis on any workload you like; this experiment set only serves as a reference point.
-
-> [!NOTE]
-> We provide the essential data analysis tools in the `parse` folder **as reference**. It is extremely difficult for us to provide end-to-end (figure-level) analysis tools, since experiment results vary across hardware configurations.
+> We provide the essential data analysis tools in the `parse` folder also **as reference**. It is extremely difficult for us to provide end-to-end (figure-level) analysis tools due to time limit and performance variation across hardware configurations.
 
 ## Hardware Requirements
 
-There are two hard requirements:
+There are two **hard** requirements:
 
 1. You must use an x86-64 CPU if you want to use our PMU programming module. You will also have to change the PMU event codes if you are using a non-Intel CPU.
 2. You must use a Mellanox NIC, since we rely on `mlx5e` driver instrumentation to report the recorded timestamps through the ftrace framework.
@@ -362,8 +360,8 @@ Latency-throughput curve and latency breakdown for Linux, Linux+IRQa, Linux+ACCa
     sudo reboot
     ```
 
-    > [!IMPORTANT]
-    > After every reboot you must repeat step 3 of [Environment Preparation](#environment-preparation), i.e., run `host_setup.sh` and `target_setup.sh` again.
+> [!IMPORTANT]
+> After every reboot you must repeat step 3 of [Environment Preparation](#environment-preparation), i.e., run `host_setup.sh` and `target_setup.sh` again.
 
 4. Run `experiment/run_fig3_4_irqa.py`, `experiment/run_fig3_4_acca.py`, and `experiment/run_fig3_4_pcsched.py` under `5.10.46-latency+` (customized kernel).
 
@@ -469,7 +467,7 @@ We use kernel modules to probe the virtual runtime of threads (`vruntime_probe`)
 > [!IMPORTANT]
 > On the server side you must first uncomment `COUNTING_SERVER_SIDE` so that the netfilter hook matches the correct IP.
 
-5. Recompile the modules on both sides **every time you change the kernel**, otherwise you will hit compatibility issues:
+5. Recompile the modules on both sides **every time you change the kernel**, otherwise you might hit compatibility issues:
 
     ```sh
     cd modules && make
@@ -514,7 +512,7 @@ We use kernel modules to probe the virtual runtime of threads (`vruntime_probe`)
 
 3. Look up the performance monitoring events for that CPU family in the [PerfMon Events Documentation](https://perfmon-events.intel.com/).
 
-4. Change the event codes for `CYCLE_ACTIVITY.STALLS_TOTAL` and `CYCLE_ACTIVITY.STALLS_L1D_MISS` in `modules/program_pmu.c` to the codes from the documentation, since they vary across families:
+4. Change the event codes for `CYCLE_ACTIVITY.STALLS_TOTAL` and `CYCLE_ACTIVITY.STALLS_L1D_MISS` in `modules/program_pmu.c` to the codes from the documentation, since they might vary across families:
 
     ```c
     static const struct counter_cfg counters[NUM_COUNTERS] = {
@@ -527,7 +525,7 @@ We use kernel modules to probe the virtual runtime of threads (`vruntime_probe`)
 
 5. Switch to the `5.10.46-latency+` (customized) kernel.
 
-6. Compile the `program_pmu` module on the client side. You must recompile the module **every time you change the kernel**:
+6. Compile the `program_pmu` module on the client side.
 
     ```sh
     cd modules && make
@@ -816,15 +814,12 @@ Latency-throughput curve with increasing in-flight requests under multiple cores
 
 3. Compile the kernel following the directions above.
 
-    > [!IMPORTANT]
-    > Disable IRQ time accounting for the `linux-6.12.66` kernel, and enable it for the `linux-6.12.66-latency` kernel. See the kernel repo — the installation is similar.
+> [!IMPORTANT]
+> Disable IRQ time accounting for the `linux-6.12.66` kernel, and enable it for the `linux-6.12.66-latency` kernel. See the kernel repo — the installation is similar.
 
 4. Change the configuration in `experiment/run_fig16a_acca.py` and run the script. It reproduces the lag evaporation scenario of Section 3.7 in our paper: one client thread runs with a higher I/O depth than the others while the CPU is fully bottlenecked.
 
-5. Run the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) experiment under the default EEVDF kernel (`linux-6.12.66`) and our customized EEVDF kernel (`linux-6.12.66-latency`).
-
-> [!NOTE]
-> When enabling PCSched, add `net.core.latency_dumb_schedule_tcp_send` to the `configure_latency_sysctls_local` and `configure_latency_sysctls_remote` helpers of the scripts and set it to 1.
+5. Run the [Figure 3-4](#figure-3-4-latency-throughput-curve-and-latency-breakdown) experiment under the default EEVDF kernel (`linux-6.12.66`) and our customized EEVDF kernel (`linux-6.12.66-latency`). Note that when enabling PCSched, add `net.core.latency_dumb_schedule_tcp_send` to the `configure_latency_sysctls_local` and `configure_latency_sysctls_remote` helpers of the scripts and set it to 1.
 
 #### Evaluation and Data Parse
 
@@ -847,7 +842,7 @@ If you are interested in the meantime, you can check our unorganized codebase ([
 
 ## Acknowledgement
 
-[Tianyu](https://netian.me) is the current maintainer of this project. Please contact him at zuotianyu@virginia.edu if you run into any issue.
+[Tianyu](https://netian.me) is the current maintainer—contact him at zuotianyu@virginia.edu if you run into any issue.
 
 Codex and Claude Code were used to polish this document and reorganize the experiment scripts.
 
