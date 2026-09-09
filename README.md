@@ -147,7 +147,7 @@ Note: You should do this on both servers.
 
 Compile the test application:
 ```sh
-cd ./application && make
+cd ./application && make && make -j$(nproc)
 ```
 
 ### Figure 2: the isolated performance for default Linux
@@ -525,14 +525,14 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
 
 1. Parse the experiment with directions in Figure 3-4 part.
 
-### Figure 9-10: Latency-throughput curve with increasing in-flight requests
+### Figure 9-11: Latency-throughput curve with increasing in-flight requests
 1. (Optional) Adjust the experiment settings (e.g., number of experiment runs) in the experiment runner `experiment/run_fig9_10_{default,acca,pcsched}.py`.
 
 1. Run `experiment/run_fig9_10_default.py` under `5.10.46-linux+` (default Linux).
 
 1. Run `experiment/run_fig9_10_acca.py` and `experiment/run_fig9_10_pcsched.py` under `5.10.46-latency+` (customized kernel).
 
-### Evaluation and Data Parse
+#### Evaluation and Data Parse
 
 1. The experiment results will be located at `single_core_iodepth_default`, `single_core_iodepth_acca`, and `single_core_iodepth_pcshed` folder in `/data/projects/latency`.
 
@@ -553,12 +553,6 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
         2        64       32    1    1        1      1     3        24739133        24739139        76178        48594
     ......
     ```
-
-### Figure 11: CDF for the number of requests per segment
-
-1. The CDF data is shipped-in with the Figure 9-10 experiments, we just need to parse the data!
-
-#### Evaluation and Data Parse
 
 1. Change the configurations in `parse/parse_iodepth_segments.py` to the interested experiments and runs prefix:
     ```python
@@ -587,6 +581,8 @@ Important: as we state in our paper, the AutoDIM sets "the minimum packet thresh
     ```
 
 ### Figure 12: Latency-throughput curve and latency breakdown with multiple CPU cores
+
+TODO: update application for core mapping -> and README.md
 
 TODO: multiple core helper scripts
 
