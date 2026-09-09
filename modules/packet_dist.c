@@ -8,7 +8,7 @@
 #include <linux/ktime.h>
 
 #define SEGMENT_HISTO_SIZE 96 // should be 64, but we leave some margin
-#define FILTER_OUTPUT_CPUS(x) (x == 1 || x == 1)
+#define FILTER_OUTPUT_CPUS(x) (x == 1 || x == 73)
 #define FILTER_PRINT_CPUS(x) (x == 73)
 // #define COUNTING_SERVER_SIDE
 

@@ -120,6 +120,32 @@ disable_tracing_remote()
 }
 
 
+enable_modules_local()
+{
+    sudo insmod ../modules/packet_dist.ko
+    echo 1 | sudo tee /sys/module/packet_dist/parameters/enable_filter
+}
+
+
+enable_modules_remote()
+{
+    ssh $USER\@$TARGETC -t "sudo insmod $TARGETDIR/latency/modules/packet_dist.ko"
+    ssh $USER\@$TARGETC -t "echo 1 | sudo tee /sys/module/packet_dist/parameters/enable_filter"
+}
+
+
+disable_modules_local()
+{
+    sudo rmmod packet_dist
+}
+
+
+disable_modules_remote()
+{
+    ssh $USER\@$TARGETC -t "sudo rmmod packet_dist"
+}
+
+
 collect_stats_before()
 {
     # Client
@@ -265,6 +291,13 @@ collect_stats_before
 
 
 ###############################################################################
+# Enable kernel modules
+###############################################################################
+enable_modules_local
+enable_modules_remote
+
+
+###############################################################################
 # Start server
 #
 # NOTE:
@@ -371,6 +404,19 @@ echo "[CLIENT] Waiting for client to finish"
 wait $PIDS
 
 echo "[CLIENT] Client finished"
+
+
+###########################################################################
+# Stop kernel modules and collect kernel log
+###########################################################################
+
+disable_modules_local
+sudo tail -n 200  /var/log/kern.log > $DIR/pkt_dist_client.log
+
+disable_modules_remote
+ssh $USER\@$TARGETC -t \
+    "sudo tail -n 200  /var/log/kern.log" \
+    > $DIR/pkt_dist_server.log
 
 
 ###############################################################################
